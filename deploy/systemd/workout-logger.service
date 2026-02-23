@@ -1,0 +1,15 @@
+[Unit]
+Description=Workout Logger Flask App (Gunicorn)
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/workout-logger
+EnvironmentFile=/opt/workout-logger/.env
+ExecStart=/opt/workout-logger/.venv/bin/gunicorn -c gunicorn.conf.py run:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
