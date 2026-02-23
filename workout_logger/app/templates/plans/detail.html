@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}{{ plan.name }} | Workout Logger{% endblock %}
+{% block content %}
+<div class="grid grid-2">
+  <section class="card">
+    <h1>{{ plan.name }}</h1>
+    <p class="muted">{{ plan.description or 'No description' }}</p>
+    <form method="post" action="{{ url_for('plans.start_workout_from_plan', plan_id=plan.id) }}">
+      <button type="submit">Start Workout From This Plan</button>
+    </form>
+  </section>
+  <section class="card">
+    <h2>Exercises</h2>
+    {% if plan.exercises %}
+      <table>
+        <thead><tr><th>#</th><th>Exercise</th><th>Target</th></tr></thead>
+        <tbody>
+          {% for pe in plan.exercises %}
+          <tr>
+            <td>{{ pe.position }}</td>
+            <td>{{ pe.exercise.name if pe.exercise else '' }}</td>
+            <td>
+              {% if pe.target_sets or pe.target_reps %}
+                {{ pe.target_sets or '' }} {% if pe.target_sets and pe.target_reps %}x{% endif %} {{ pe.target_reps or '' }}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No exercises in this plan.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

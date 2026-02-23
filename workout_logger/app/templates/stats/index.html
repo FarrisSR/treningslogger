@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Stats | Workout Logger{% endblock %}
+{% block content %}
+<div class="grid grid-2">
+  <section class="card">
+    <h2>Weekly Volume</h2>
+    <img src="{{ url_for('stats.volume_png') }}" alt="Weekly volume chart" style="width:100%; border-radius:8px; border:1px solid #d6dbe0;">
+  </section>
+  <section class="card">
+    <h2>Estimated 1RM (Epley)</h2>
+    <img src="{{ url_for('stats.pr_png') }}" alt="Estimated 1RM chart" style="width:100%; border-radius:8px; border:1px solid #d6dbe0;">
+  </section>
+</div>
+{% endblock %}

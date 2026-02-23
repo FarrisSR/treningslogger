@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Workout Logger{% endblock %}</title>
+  <style>
+    :root { --bg: #f6f7f5; --fg: #172026; --muted: #66727f; --line: #d6dbe0; --brand: #0b7a75; --card: #fff; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+    header { background: linear-gradient(90deg, #0b7a75, #0e9f6e); color: white; padding: 0.9rem 1rem; }
+    nav { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+    nav a { color: white; text-decoration: none; font-weight: 600; }
+    nav form { margin-left: auto; }
+    main { max-width: 1080px; margin: 1rem auto; padding: 0 1rem 2rem; }
+    .grid { display: grid; gap: 1rem; }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid var(--line); padding: 0.45rem; text-align: left; }
+    label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
+    input, select, textarea, button { width: 100%; box-sizing: border-box; padding: 0.55rem; border: 1px solid #c6ced6; border-radius: 8px; }
+    button { background: var(--brand); color: white; font-weight: 600; cursor: pointer; }
+    button.secondary { background: #4b5563; }
+    .inline { display: flex; gap: 0.5rem; align-items: end; flex-wrap: wrap; }
+    .inline > * { flex: 1; min-width: 120px; }
+    .muted { color: var(--muted); font-size: 0.9rem; }
+    .flash { padding: 0.6rem 0.8rem; border-radius: 8px; margin-bottom: 0.5rem; }
+    .flash.error { background: #fee2e2; color: #991b1b; }
+    .flash.success { background: #dcfce7; color: #166534; }
+    code { background: #eef2f7; padding: 0.1rem 0.25rem; border-radius: 4px; }
+    .status { min-height: 1.2em; }
+    .pill { display: inline-block; background: #e0f2fe; color: #075985; border-radius: 999px; padding: 0.15rem 0.5rem; font-size: 0.8rem; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="{{ url_for('workouts.index') }}">Workout Logger</a>
+      {% if g.current_user %}
+        <a href="{{ url_for('workouts.create_workout') }}">New Workout</a>
+        <a href="{{ url_for('plans.list_plans') }}">Plans</a>
+        <a href="{{ url_for('stats.stats_index') }}">Stats</a>
+        <a href="{{ url_for('workouts.export_sets_csv') }}">CSV</a>
+        <a href="{{ url_for('workouts.export_sets_xlsx') }}">Excel</a>
+        <span class="pill">{{ g.current_user.username }}</span>
+        <form method="post" action="{{ url_for('auth.logout') }}">
+          <button type="submit" class="secondary">Logout</button>
+        </form>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}">Login</a>
+        <a href="{{ url_for('auth.register') }}">Register</a>
+      {% endif %}
+    </nav>
+  </header>
+  <main>
+    {% with flashes = get_flashed_messages(with_categories=true) %}
+      {% for category, message in flashes %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

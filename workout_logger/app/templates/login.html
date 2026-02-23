@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}Login | Workout Logger{% endblock %}
+{% block content %}
+<div class="card" style="max-width:420px; margin:auto;">
+  <h1>Login</h1>
+  <form method="post" class="grid">
+    <div>
+      <label for="username">Username</label>
+      <input id="username" name="username" required>
+    </div>
+    <div>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" required>
+    </div>
+    <button type="submit">Login</button>
+  </form>
+  <p class="muted">No account? <a href="{{ url_for('auth.register') }}">Register</a>.</p>
+</div>
+{% endblock %}

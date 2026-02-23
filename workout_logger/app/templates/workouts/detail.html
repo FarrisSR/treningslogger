@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block title %}{{ workout.title }} | Workout Logger{% endblock %}
+{% block head %}
+<script defer src="{{ url_for('static', filename='js/workout_detail.js') }}"></script>
+{% endblock %}
+{% block content %}
+<div class="grid grid-2">
+  <section class="card">
+    <h1>{{ workout.title }}</h1>
+    <p class="muted">{{ workout.workout_date }}{% if workout.plan %} · Plan: {{ workout.plan.name }}{% endif %}</p>
+    <form method="post" action="{{ url_for('workouts.update_workout', workout_id=workout.id) }}" class="grid">
+      <div>
+        <label for="duration_minutes">Duration (min)</label>
+        <input id="duration_minutes" name="duration_minutes" type="number" min="0" value="{{ workout.duration_minutes or '' }}">
+      </div>
+      <div>
+        <label for="notes">Workout Notes</label>
+        <textarea id="notes" name="notes" rows="4">{{ workout.notes or '' }}</textarea>
+      </div>
+      <button type="submit">Save Workout Details</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Add Set</h2>
+    {% if plan_exercise_ids %}
+      <p class="muted">Plan exercises are available in the selector. You can also type a new one.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('workouts.add_set', workout_id=workout.id) }}" class="grid" id="add-set-form">
+      <div>
+        <label for="exercise_id">Exercise</label>
+        <select id="exercise_id" name="exercise_id">
+          <option value="">Select an exercise</option>
+          {% for exercise in exercises %}
+            <option value="{{ exercise.id }}">{{ exercise.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="exercise_name">Or create exercise</label>
+        <input id="exercise_name" name="exercise_name" placeholder="e.g. Incline DB Press">
+      </div>
+      <div class="inline">
+        <div>
+          <label for="set_no">Set #</label>
+          <input id="set_no" name="set_no" type="number" min="1" value="1" required>
+        </div>
+        <div>
+          <label for="reps">Reps</label>
+          <input id="reps" name="reps" type="number" min="0" step="1" required>
+        </div>
+        <div>
+          <label for="weight_kg">Weight (kg)</label>
+          <input id="weight_kg" name="weight_kg" type="number" min="0" step="0.5" required>
+        </div>
+        <div>
+          <label for="rpe">RPE</label>
+          <input id="rpe" name="rpe" type="number" min="0" max="10" step="0.5">
+        </div>
+      </div>
+      <button type="submit">Add Set</button>
+    </form>
+  </section>
+</div>
+
+<div class="grid grid-2" style="margin-top:1rem;">
+  <section class="card">
+    <h2>Logged Sets</h2>
+    {% if grouped_sets %}
+      {% for exercise in exercises if grouped_sets.get(exercise.id) %}
+        <h3>{{ exercise.name }}</h3>
+        <table>
+          <thead><tr><th>Set</th><th>Reps</th><th>Weight</th><th>RPE</th><th></th></tr></thead>
+          <tbody>
+            {% for s in grouped_sets.get(exercise.id, []) %}
+            <tr>
+              <td>{{ s.set_no }}</td>
+              <td>{{ s.reps }}</td>
+              <td>{{ '%.2f'|format(s.weight_kg) }}</td>
+              <td>{{ s.rpe if s.rpe is not none else '' }}</td>
+              <td>
+                <form method="post" action="{{ url_for('workouts.delete_set', workout_id=workout.id, set_id=s.id) }}">
+                  <button type="submit" class="secondary">Delete</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endfor %}
+    {% else %}
+      <p class="muted">No sets logged yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="card" id="exercise-hint-panel"
+           data-workout-id="{{ workout.id }}"
+           data-hint-url="{{ url_for('api.exercise_hint', workout_id=workout.id) }}"
+           data-note-url="{{ url_for('api.save_exercise_note', workout_id=workout.id) }}">
+    <h2>Exercise History & Notes</h2>
+    <p class="muted">Select an exercise to load the last matching session and note.</p>
+    <p><strong id="hint-exercise-name">No exercise selected</strong></p>
+    <div id="hint-previous-meta" class="muted"></div>
+    <div id="hint-previous-sets"></div>
+    <div>
+      <label>Previous Note</label>
+      <div id="hint-previous-note" class="card" style="padding:0.75rem; min-height:2.2rem; background:#f8fafc;"></div>
+    </div>
+    <div style="margin-top:0.75rem;">
+      <label for="current-exercise-note">Current Workout Exercise Note</label>
+      <textarea id="current-exercise-note" rows="5" disabled placeholder="Select an exercise to add a note..."></textarea>
+      <div class="status muted" id="note-save-status"></div>
+    </div>
+  </section>
+</div>
+{% endblock %}

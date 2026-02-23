@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}Workouts | Workout Logger{% endblock %}
+{% block content %}
+<div class="grid grid-2">
+  <section class="card">
+    <h2>Recent Workouts</h2>
+    {% if workouts %}
+      <table>
+        <thead><tr><th>Date</th><th>Title</th><th>Plan</th></tr></thead>
+        <tbody>
+          {% for workout in workouts %}
+          <tr>
+            <td>{{ workout.workout_date }}</td>
+            <td><a href="{{ url_for('workouts.view_workout', workout_id=workout.id) }}">{{ workout.title }}</a></td>
+            <td>{{ workout.plan.name if workout.plan else '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No workouts yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Quick Actions</h2>
+    <p><a href="{{ url_for('workouts.create_workout') }}">Create workout</a></p>
+    <p><a href="{{ url_for('plans.create_plan') }}">Create plan</a></p>
+    {% if plans %}
+      <h3>Start from plan</h3>
+      <div class="grid">
+        {% for plan in plans %}
+          <form method="post" action="{{ url_for('plans.start_workout_from_plan', plan_id=plan.id) }}">
+            <button type="submit">{{ plan.name }}</button>
+          </form>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Plans | Workout Logger{% endblock %}
+{% block content %}
+<div class="card">
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+    <h1>Workout Plans</h1>
+    <a href="{{ url_for('plans.create_plan') }}">Create Plan</a>
+  </div>
+  {% if plans %}
+    <table>
+      <thead><tr><th>Name</th><th>Exercises</th><th></th></tr></thead>
+      <tbody>
+        {% for plan in plans %}
+        <tr>
+          <td>{{ plan.name }}</td>
+          <td>{{ plan.exercises|length }}</td>
+          <td><a href="{{ url_for('plans.view_plan', plan_id=plan.id) }}">Open</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No plans yet.</p>
+  {% endif %}
+</div>
+{% endblock %}
