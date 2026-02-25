@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import re
 from datetime import date, datetime
 from io import BytesIO, StringIO
@@ -10,6 +11,7 @@ from flask import (
     Response,
     abort,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -21,7 +23,7 @@ from openpyxl import Workbook
 from sqlalchemy.orm import joinedload
 
 from .. import db
-from ..models import Exercise, SetEntry, Workout, WorkoutExerciseNote, WorkoutPlan
+from ..models import Exercise, PlanExercise, SetEntry, Workout, WorkoutExerciseNote, WorkoutPlan
 from ..services.history import get_previous_workout
 from . import login_required, require_user
 
@@ -425,6 +427,548 @@ def _export_rows(user_id: int):
     )
 
 
+def _read_upload_text(file_key: str, text_key: str) -> str:
+    text_value = (request.form.get(text_key) or "").strip()
+    if text_value:
+        return text_value
+    uploaded = request.files.get(file_key)
+    if uploaded and uploaded.filename:
+        return uploaded.read().decode("utf-8")
+    return ""
+
+
+def _parse_optional_int(value: object) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    return int(text)
+
+
+def _parse_optional_float(value: object) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip()
+    if not text:
+        return None
+    return float(text)
+
+
+def _normalized_csv_key(key: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", (key or "").strip().lower()).strip("_")
+
+
+def _export_workouts_payload(user_id: int) -> dict:
+    exercises = Exercise.query.filter_by(user_id=user_id).order_by(Exercise.name.asc()).all()
+    plans = (
+        WorkoutPlan.query.filter_by(user_id=user_id)
+        .options(joinedload(WorkoutPlan.exercises).joinedload(PlanExercise.exercise))
+        .order_by(WorkoutPlan.name.asc())
+        .all()
+    )
+    workouts = (
+        Workout.query.filter_by(user_id=user_id)
+        .options(
+            joinedload(Workout.sets).joinedload(SetEntry.exercise),
+            joinedload(Workout.exercise_notes).joinedload(WorkoutExerciseNote.exercise),
+            joinedload(Workout.plan),
+        )
+        .order_by(Workout.workout_date.asc(), Workout.created_at.asc())
+        .all()
+    )
+
+    return {
+        "format": "workout_logger_export",
+        "version": 1,
+        "exported_at": datetime.utcnow().isoformat() + "Z",
+        "exercises": [{"name": exercise.name} for exercise in exercises],
+        "plans": [
+            {
+                "name": plan.name,
+                "description": plan.description,
+                "exercises": [
+                    {
+                        "exercise": pe.exercise.name if pe.exercise else None,
+                        "position": pe.position,
+                        "target_sets": pe.target_sets,
+                        "target_reps": pe.target_reps,
+                    }
+                    for pe in plan.exercises
+                    if pe.exercise is not None
+                ],
+            }
+            for plan in plans
+        ],
+        "workouts": [
+            {
+                "title": workout.title,
+                "workout_date": workout.workout_date.isoformat(),
+                "duration_minutes": workout.duration_minutes,
+                "notes": workout.notes,
+                "plan": workout.plan.name if workout.plan else None,
+                "sets": [
+                    {
+                        "exercise": s.exercise.name if s.exercise else None,
+                        "set_no": s.set_no,
+                        "reps": s.reps,
+                        "duration_seconds": s.duration_seconds,
+                        "weight_kg": s.weight_kg,
+                        "rpe": s.rpe,
+                    }
+                    for s in sorted(workout.sets, key=lambda x: (x.exercise_id or 0, x.set_no or 0, x.id))
+                    if s.exercise is not None
+                ],
+                "exercise_notes": [
+                    {
+                        "exercise": note.exercise.name if note.exercise else None,
+                        "note": note.note,
+                    }
+                    for note in workout.exercise_notes
+                    if note.exercise is not None and note.note
+                ],
+            }
+            for workout in workouts
+        ],
+    }
+
+
+def _find_duplicate_workout_for_import(user_id: int, title: str, workout_date: date, plan: WorkoutPlan | None) -> Workout | None:
+    return Workout.query.filter_by(
+        user_id=user_id,
+        workout_date=workout_date,
+        title=title,
+        plan_id=plan.id if plan else None,
+    ).first()
+
+
+def _import_workouts_json_payload(
+    user_id: int,
+    payload: dict,
+    default_workout_conflict_strategy: str = "skip",
+    workout_strategies: dict[int, str] | None = None,
+) -> dict:
+    if not isinstance(payload, dict):
+        raise ValueError("JSON root must be an object.")
+    if default_workout_conflict_strategy not in {"skip", "merge", "replace"}:
+        raise ValueError("Invalid default workout conflict strategy.")
+    workout_strategies = workout_strategies or {}
+
+    summary = {
+        "exercises_created": 0,
+        "plans_created": 0,
+        "plans_updated": 0,
+        "workouts_created": 0,
+        "workouts_skipped": 0,
+        "workouts_merged": 0,
+        "workouts_replaced": 0,
+        "sets_created": 0,
+        "sets_updated": 0,
+        "exercise_notes_created": 0,
+        "exercise_notes_updated": 0,
+    }
+
+    exercise_cache: dict[str, Exercise] = {}
+
+    def ensure_exercise(name: str | None) -> Exercise | None:
+        if not name:
+            return None
+        clean = " ".join(str(name).split())
+        if not clean:
+            return None
+        key = clean.lower()
+        if key in exercise_cache:
+            return exercise_cache[key]
+        existing = Exercise.query.filter_by(user_id=user_id, name=clean).first()
+        if existing is None:
+            existing = Exercise(user_id=user_id, name=clean)
+            db.session.add(existing)
+            db.session.flush()
+            summary["exercises_created"] += 1
+        exercise_cache[key] = existing
+        return existing
+
+    for ex in payload.get("exercises", []) or []:
+        if isinstance(ex, dict):
+            ensure_exercise(ex.get("name"))
+
+    plan_cache_by_name: dict[str, WorkoutPlan] = {}
+    for plan_payload in payload.get("plans", []) or []:
+        if not isinstance(plan_payload, dict):
+            continue
+        plan_name = " ".join(str(plan_payload.get("name") or "").split())
+        if not plan_name:
+            continue
+        plan = WorkoutPlan.query.filter_by(user_id=user_id, name=plan_name).first()
+        if plan is None:
+            plan = WorkoutPlan(user_id=user_id, name=plan_name)
+            db.session.add(plan)
+            db.session.flush()
+            summary["plans_created"] += 1
+        else:
+            summary["plans_updated"] += 1
+
+        plan.description = (plan_payload.get("description") or None)
+        plan.exercises.clear()
+        db.session.flush()
+
+        for idx, pe in enumerate((plan_payload.get("exercises") or []), start=1):
+            if not isinstance(pe, dict):
+                continue
+            exercise = ensure_exercise(pe.get("exercise"))
+            if exercise is None:
+                continue
+            plan.exercises.append(
+                PlanExercise(
+                    exercise_id=exercise.id,
+                    position=_parse_optional_int(pe.get("position")) or idx,
+                    target_sets=_parse_optional_int(pe.get("target_sets")),
+                    target_reps=(str(pe.get("target_reps")).strip() if pe.get("target_reps") is not None else None),
+                )
+            )
+        plan_cache_by_name[plan_name.lower()] = plan
+
+    for workout_index, workout_payload in enumerate(payload.get("workouts", []) or []):
+        if not isinstance(workout_payload, dict):
+            continue
+        title = " ".join(str(workout_payload.get("title") or "").split())
+        if not title:
+            continue
+        workout_date_raw = str(workout_payload.get("workout_date") or "").strip()
+        if not workout_date_raw:
+            raise ValueError(f"Workout '{title}' is missing workout_date.")
+        workout_date = datetime.strptime(workout_date_raw, "%Y-%m-%d").date()
+
+        plan_name = " ".join(str(workout_payload.get("plan") or "").split()) or None
+        plan = plan_cache_by_name.get(plan_name.lower()) if plan_name else None
+        if plan is None and plan_name:
+            plan = WorkoutPlan.query.filter_by(user_id=user_id, name=plan_name).first()
+            if plan:
+                plan_cache_by_name[plan_name.lower()] = plan
+
+        duplicate = _find_duplicate_workout_for_import(user_id, title, workout_date, plan)
+        strategy = workout_strategies.get(workout_index, default_workout_conflict_strategy)
+        if strategy not in {"skip", "merge", "replace"}:
+            strategy = default_workout_conflict_strategy
+
+        workout: Workout | None = None
+        if duplicate is not None:
+            if strategy == "skip":
+                summary["workouts_skipped"] += 1
+                continue
+            if strategy == "replace":
+                db.session.delete(duplicate)
+                db.session.flush()
+                summary["workouts_replaced"] += 1
+            elif strategy == "merge":
+                workout = duplicate
+                workout.plan_id = plan.id if plan else None
+                workout.duration_minutes = _parse_optional_int(workout_payload.get("duration_minutes"))
+                workout.notes = (str(workout_payload.get("notes")).strip() if workout_payload.get("notes") is not None else None)
+                summary["workouts_merged"] += 1
+
+        if workout is None:
+            workout = Workout(
+                user_id=user_id,
+                plan_id=plan.id if plan else None,
+                title=title,
+                workout_date=workout_date,
+                duration_minutes=_parse_optional_int(workout_payload.get("duration_minutes")),
+                notes=(str(workout_payload.get("notes")).strip() if workout_payload.get("notes") is not None else None),
+            )
+            db.session.add(workout)
+            db.session.flush()
+            summary["workouts_created"] += 1
+
+        existing_sets_by_key: dict[tuple[int, int], SetEntry] = {}
+        existing_notes_by_exercise_id: dict[int, WorkoutExerciseNote] = {}
+        if duplicate is not None and strategy == "merge":
+            for existing_set in SetEntry.query.filter_by(user_id=user_id, workout_id=workout.id).all():
+                existing_sets_by_key[(existing_set.exercise_id, existing_set.set_no)] = existing_set
+            for existing_note in WorkoutExerciseNote.query.filter_by(user_id=user_id, workout_id=workout.id).all():
+                existing_notes_by_exercise_id[existing_note.exercise_id] = existing_note
+
+        for set_payload in workout_payload.get("sets", []) or []:
+            if not isinstance(set_payload, dict):
+                continue
+            exercise = ensure_exercise(set_payload.get("exercise"))
+            if exercise is None:
+                continue
+            set_no = _parse_optional_int(set_payload.get("set_no"))
+            if set_no is None:
+                continue
+            reps = _parse_optional_int(set_payload.get("reps"))
+            duration_seconds = _parse_optional_int(set_payload.get("duration_seconds"))
+            if reps is None and duration_seconds is None:
+                continue
+            if reps is not None and duration_seconds is not None:
+                continue
+            weight_kg = _parse_optional_float(set_payload.get("weight_kg")) or 0.0
+            rpe = _parse_optional_float(set_payload.get("rpe"))
+            existing_set = existing_sets_by_key.get((exercise.id, set_no))
+            if existing_set is not None:
+                existing_set.reps = reps
+                existing_set.duration_seconds = duration_seconds
+                existing_set.weight_kg = weight_kg
+                existing_set.rpe = rpe
+                summary["sets_updated"] += 1
+            else:
+                db.session.add(
+                    SetEntry(
+                        user_id=user_id,
+                        workout_id=workout.id,
+                        exercise_id=exercise.id,
+                        set_no=set_no,
+                        reps=reps,
+                        duration_seconds=duration_seconds,
+                        weight_kg=weight_kg,
+                        rpe=rpe,
+                    )
+                )
+                summary["sets_created"] += 1
+
+        for note_payload in workout_payload.get("exercise_notes", []) or []:
+            if not isinstance(note_payload, dict):
+                continue
+            note_text = (str(note_payload.get("note") or "")).strip()
+            if not note_text:
+                continue
+            exercise = ensure_exercise(note_payload.get("exercise"))
+            if exercise is None:
+                continue
+            existing_note = existing_notes_by_exercise_id.get(exercise.id)
+            if existing_note is None:
+                existing_note = WorkoutExerciseNote.query.filter_by(
+                    user_id=user_id,
+                    workout_id=workout.id,
+                    exercise_id=exercise.id,
+                ).first()
+            if existing_note is None:
+                db.session.add(
+                    WorkoutExerciseNote(
+                        user_id=user_id,
+                        workout_id=workout.id,
+                        exercise_id=exercise.id,
+                        note=note_text,
+                    )
+                )
+                summary["exercise_notes_created"] += 1
+            else:
+                existing_note.note = note_text
+                summary["exercise_notes_updated"] += 1
+
+    return summary
+
+
+def _preview_workouts_json_payload(payload: dict, user_id: int | None = None) -> dict:
+    if not isinstance(payload, dict):
+        raise ValueError("JSON root must be an object.")
+    plans = [p for p in (payload.get("plans") or []) if isinstance(p, dict)]
+    workouts = [w for w in (payload.get("workouts") or []) if isinstance(w, dict)]
+    exercises = [e for e in (payload.get("exercises") or []) if isinstance(e, dict)]
+
+    preview_plans = []
+    for plan in plans[:5]:
+        plan_exercises = [pe for pe in (plan.get("exercises") or []) if isinstance(pe, dict)]
+        preview_plans.append(
+            {
+                "name": str(plan.get("name") or "").strip(),
+                "exercise_count": len(plan_exercises),
+                "exercise_examples": [
+                    str(pe.get("exercise") or "").strip()
+                    for pe in plan_exercises[:4]
+                    if str(pe.get("exercise") or "").strip()
+                ],
+            }
+        )
+
+    preview_workouts = []
+    workout_conflicts = []
+    for idx, workout in enumerate(workouts):
+        sets = [s for s in (workout.get("sets") or []) if isinstance(s, dict)]
+        title = str(workout.get("title") or "").strip()
+        workout_date_text = str(workout.get("workout_date") or "").strip()
+        plan_name = str(workout.get("plan") or "").strip()
+        item = {
+            "index": idx,
+            "title": title,
+            "workout_date": workout_date_text,
+            "plan": plan_name,
+            "set_count": len(sets),
+            "exercise_examples": sorted(
+                {
+                    str(s.get("exercise") or "").strip()
+                    for s in sets
+                    if str(s.get("exercise") or "").strip()
+                }
+            )[:4],
+        }
+        if len(preview_workouts) < 8:
+            preview_workouts.append(item)
+
+        if user_id is not None and title and workout_date_text:
+            try:
+                workout_date = datetime.strptime(workout_date_text, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            plan = None
+            if plan_name:
+                plan = WorkoutPlan.query.filter_by(user_id=user_id, name=plan_name).first()
+            duplicate = _find_duplicate_workout_for_import(user_id, title, workout_date, plan)
+            if duplicate is not None:
+                workout_conflicts.append(
+                    {
+                        "index": idx,
+                        "title": title,
+                        "workout_date": workout_date_text,
+                        "plan": plan_name,
+                        "import_set_count": len(sets),
+                        "existing_workout_id": duplicate.id,
+                        "existing_set_count": SetEntry.query.filter_by(user_id=user_id, workout_id=duplicate.id).count(),
+                    }
+                )
+
+    return {
+        "meta": {
+            "format": payload.get("format"),
+            "version": payload.get("version"),
+            "exercises_count": len(exercises),
+            "plans_count": len(plans),
+            "workouts_count": len(workouts),
+            "workout_conflicts_count": len(workout_conflicts),
+        },
+        "plans": preview_plans,
+        "workouts": preview_workouts,
+        "workout_conflicts": workout_conflicts,
+    }
+
+
+def _import_sets_csv_text(user_id: int, csv_text: str, skip_existing_sets: bool = True) -> dict:
+    if not csv_text.strip():
+        raise ValueError("CSV input is empty.")
+
+    reader = csv.DictReader(StringIO(csv_text))
+    if not reader.fieldnames:
+        raise ValueError("CSV file is missing headers.")
+
+    header_map = {_normalized_csv_key(name): name for name in reader.fieldnames}
+
+    def get_cell(row: dict, *aliases: str) -> str:
+        for alias in aliases:
+            actual = header_map.get(_normalized_csv_key(alias))
+            if actual is not None:
+                return str(row.get(actual) or "").strip()
+        return ""
+
+    summary = {
+        "rows_read": 0,
+        "rows_skipped": 0,
+        "workouts_created": 0,
+        "sets_created": 0,
+        "sets_skipped_existing": 0,
+        "exercises_created": 0,
+    }
+    exercise_cache: dict[str, Exercise] = {}
+    workout_cache: dict[tuple, Workout] = {}
+
+    def ensure_exercise(name: str) -> Exercise:
+        clean = " ".join(name.split())
+        key = clean.lower()
+        if key in exercise_cache:
+            return exercise_cache[key]
+        exercise = Exercise.query.filter_by(user_id=user_id, name=clean).first()
+        if exercise is None:
+            exercise = Exercise(user_id=user_id, name=clean)
+            db.session.add(exercise)
+            db.session.flush()
+            summary["exercises_created"] += 1
+        exercise_cache[key] = exercise
+        return exercise
+
+    for row in reader:
+        summary["rows_read"] += 1
+        title = get_cell(row, "workout_title", "workout title", "title")
+        date_str = get_cell(row, "date", "workout_date")
+        exercise_name = get_cell(row, "exercise")
+        set_no_str = get_cell(row, "set_no", "set")
+        if not title or not date_str or not exercise_name or not set_no_str:
+            summary["rows_skipped"] += 1
+            continue
+
+        try:
+            workout_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            set_no = int(set_no_str)
+            reps = _parse_optional_int(get_cell(row, "reps"))
+            duration_seconds = _parse_optional_int(get_cell(row, "duration_seconds", "duration seconds"))
+            weight_kg = _parse_optional_float(get_cell(row, "weight_kg", "weight kg", "weight")) or 0.0
+            rpe = _parse_optional_float(get_cell(row, "rpe"))
+            duration_minutes = _parse_optional_int(get_cell(row, "duration", "duration_minutes"))
+        except ValueError:
+            summary["rows_skipped"] += 1
+            continue
+
+        if reps is None and duration_seconds is None:
+            summary["rows_skipped"] += 1
+            continue
+        if reps is not None and duration_seconds is not None:
+            summary["rows_skipped"] += 1
+            continue
+
+        workout_notes = get_cell(row, "workout_notes", "workout notes", "notes") or None
+        workout_key = (workout_date, title, duration_minutes, workout_notes)
+        workout = workout_cache.get(workout_key)
+        if workout is None:
+            workout = Workout.query.filter_by(
+                user_id=user_id,
+                workout_date=workout_date,
+                title=title,
+            ).first()
+            if workout is None:
+                workout = Workout(
+                    user_id=user_id,
+                    title=title,
+                    workout_date=workout_date,
+                    duration_minutes=duration_minutes,
+                    notes=workout_notes,
+                )
+                db.session.add(workout)
+                db.session.flush()
+                summary["workouts_created"] += 1
+            workout_cache[workout_key] = workout
+
+        exercise = ensure_exercise(exercise_name)
+        if skip_existing_sets:
+            existing = SetEntry.query.filter_by(
+                user_id=user_id,
+                workout_id=workout.id,
+                exercise_id=exercise.id,
+                set_no=set_no,
+            ).first()
+            if existing is not None:
+                summary["sets_skipped_existing"] += 1
+                continue
+
+        db.session.add(
+            SetEntry(
+                user_id=user_id,
+                workout_id=workout.id,
+                exercise_id=exercise.id,
+                set_no=set_no,
+                reps=reps,
+                duration_seconds=duration_seconds,
+                weight_kg=weight_kg,
+                rpe=rpe,
+            )
+        )
+        summary["sets_created"] += 1
+
+    return summary
+
+
 @bp.get("/export/sets.csv")
 @login_required
 def export_sets_csv():
@@ -474,6 +1018,19 @@ def export_sets_csv():
     )
 
 
+@bp.get("/export/workouts.json")
+@login_required
+def export_workouts_json():
+    user = require_user()
+    payload = _export_workouts_payload(user.id)
+    filename = f"workout_export_{date.today().isoformat()}.json"
+    return Response(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        mimetype="application/json",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
 @bp.get("/export/sets.xlsx")
 @login_required
 def export_sets_xlsx():
@@ -516,4 +1073,127 @@ def export_sets_xlsx():
         as_attachment=True,
         download_name=filename,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@bp.get("/import")
+@login_required
+def import_tools():
+    return render_template(
+        "workouts/import.html",
+        json_summary=None,
+        csv_summary=None,
+        json_preview=None,
+        json_text_value="",
+        json_default_strategy="skip",
+        json_workout_strategies={},
+    )
+
+
+@bp.post("/import/workouts.json")
+@login_required
+def import_workouts_json():
+    user = require_user()
+    raw_text = _read_upload_text("json_file", "json_text")
+    dry_run = bool(request.form.get("dry_run"))
+    default_strategy = (request.form.get("default_workout_conflict_strategy") or "skip").strip().lower()
+    if default_strategy not in {"skip", "merge", "replace"}:
+        default_strategy = "skip"
+    workout_strategy_overrides = {}
+    for key, value in request.form.items():
+        if not key.startswith("workout_strategy_"):
+            continue
+        idx_part = key.removeprefix("workout_strategy_")
+        if idx_part.isdigit():
+            choice = (value or "").strip().lower()
+            if choice in {"skip", "merge", "replace"}:
+                workout_strategy_overrides[int(idx_part)] = choice
+
+    json_summary = None
+    csv_summary = None
+    json_preview = None
+    try:
+        if not raw_text.strip():
+            raise ValueError("Provide JSON via file upload or paste JSON text.")
+        payload = json.loads(raw_text)
+        if request.form.get("preview_json"):
+            json_preview = _preview_workouts_json_payload(payload, user_id=user.id)
+            flash("JSON preview generated. No data was saved.", "success")
+            return render_template(
+                "workouts/import.html",
+                json_summary=None,
+                csv_summary=None,
+                json_preview=json_preview,
+                json_text_value=raw_text,
+                json_default_strategy=default_strategy,
+                json_workout_strategies=workout_strategy_overrides,
+            )
+        summary = _import_workouts_json_payload(
+            user.id,
+            payload,
+            default_workout_conflict_strategy=default_strategy,
+            workout_strategies=workout_strategy_overrides,
+        )
+        json_summary = {
+            "dry_run": dry_run,
+            "default_workout_conflict_strategy": default_strategy,
+            "summary": summary,
+        }
+        if dry_run:
+            db.session.rollback()
+            flash("JSON import dry-run complete. No data was saved.", "success")
+        else:
+            db.session.commit()
+            flash("JSON import completed.", "success")
+    except Exception as exc:  # Keep import UX simple with one error surface.
+        db.session.rollback()
+        flash(f"JSON import failed: {exc}", "error")
+
+    return render_template(
+        "workouts/import.html",
+        json_summary=json_summary,
+        csv_summary=csv_summary,
+        json_preview=json_preview,
+        json_text_value=raw_text,
+        json_default_strategy=default_strategy,
+        json_workout_strategies=workout_strategy_overrides,
+    )
+
+
+@bp.post("/import/sets.csv")
+@login_required
+def import_sets_csv():
+    user = require_user()
+    raw_text = _read_upload_text("csv_file", "csv_text")
+    dry_run = bool(request.form.get("dry_run"))
+    skip_existing_sets = bool(request.form.get("skip_existing_sets")) or "skip_existing_sets" not in request.form
+
+    json_summary = None
+    csv_summary = None
+    json_preview = None
+    try:
+        summary = _import_sets_csv_text(user.id, raw_text, skip_existing_sets=skip_existing_sets)
+        csv_summary = {
+            "dry_run": dry_run,
+            "skip_existing_sets": skip_existing_sets,
+            "summary": summary,
+        }
+        if dry_run:
+            db.session.rollback()
+            flash("CSV import dry-run complete. No data was saved.", "success")
+        else:
+            db.session.commit()
+            flash("CSV import completed.", "success")
+    except Exception as exc:
+        db.session.rollback()
+        flash(f"CSV import failed: {exc}", "error")
+
+    return render_template(
+        "workouts/import.html",
+        json_summary=json_summary,
+        csv_summary=csv_summary,
+        json_preview=json_preview,
+        json_text_value="",
+        json_default_strategy="skip",
+        json_workout_strategies={},
     )
