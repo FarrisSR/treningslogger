@@ -22,6 +22,7 @@ from sqlalchemy.orm import joinedload
 
 from .. import db
 from ..models import Exercise, SetEntry, Workout, WorkoutExerciseNote, WorkoutPlan
+from ..services.history import get_previous_workout
 from . import login_required, require_user
 
 bp = Blueprint("workouts", __name__)
@@ -189,7 +190,21 @@ def view_workout(workout_id: int):
     plan_exercise_ids = []
     plan_exercise_items = []
     plan_mode_sections = []
+    previous_workout = None
+    previous_sets_by_exercise_set_no: dict[tuple[int, int], SetEntry] = {}
+    previous_last_set_by_exercise: dict[int, SetEntry] = {}
     if workout.plan:
+        previous_workout = get_previous_workout(user.id, workout)
+        if previous_workout is not None:
+            previous_sets = (
+                SetEntry.query.filter_by(user_id=user.id, workout_id=previous_workout.id)
+                .order_by(SetEntry.exercise_id.asc(), SetEntry.set_no.asc(), SetEntry.id.asc())
+                .all()
+            )
+            for prev_set in previous_sets:
+                previous_sets_by_exercise_set_no.setdefault((prev_set.exercise_id, prev_set.set_no), prev_set)
+                previous_last_set_by_exercise[prev_set.exercise_id] = prev_set
+
         for pe in workout.plan.exercises:
             if pe.exercise is None:
                 continue
@@ -217,12 +232,17 @@ def view_workout(workout_id: int):
                 sets_for_exercise = grouped_sets.get(pe.exercise_id, [])
                 for planned_set_no in range(1, pe.target_sets + 1):
                     matching_logged = [s for s in sets_for_exercise if s.set_no == planned_set_no]
+                    previous_set = previous_sets_by_exercise_set_no.get((pe.exercise_id, planned_set_no))
+                    if previous_set is None:
+                        previous_set = previous_last_set_by_exercise.get(pe.exercise_id)
                     planned_rows.append(
                         {
                             "set_no": planned_set_no,
                             "suggested_reps": suggested_reps,
                             "suggested_duration_seconds": suggested_duration_seconds,
+                            "suggested_weight_kg": previous_set.weight_kg if previous_set is not None else None,
                             "target_mode": target_mode,
+                            "previous_set": previous_set,
                             "logged": matching_logged,
                         }
                     )
@@ -260,6 +280,7 @@ def view_workout(workout_id: int):
         plan_exercise_ids=plan_exercise_ids,
         plan_exercise_items=plan_exercise_items,
         plan_mode_sections=plan_mode_sections,
+        previous_workout=previous_workout,
         selected_exercise_id=selected_exercise_id,
         next_set_no_by_exercise=next_set_no_by_exercise,
         selected_set_no=selected_set_no,
@@ -312,6 +333,19 @@ def add_set(workout_id: int):
         return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=exercise.id))
     if reps is not None and duration_seconds is not None:
         flash("Use either reps or duration for a set, not both.", "error")
+        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=exercise.id))
+
+    existing_same_set_no = SetEntry.query.filter_by(
+        user_id=user.id,
+        workout_id=workout.id,
+        exercise_id=exercise.id,
+        set_no=set_no,
+    ).first()
+    if existing_same_set_no is not None:
+        flash(
+            f"Set #{set_no} already exists for {exercise.name}. Delete or renumber the existing set first.",
+            "error",
+        )
         return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=exercise.id))
 
     db.session.add(

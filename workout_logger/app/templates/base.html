@@ -30,19 +30,50 @@
     code { background: #eef2f7; padding: 0.1rem 0.25rem; border-radius: 4px; }
     .status { min-height: 1.2em; }
     .pill { display: inline-block; background: #e0f2fe; color: #075985; border-radius: 999px; padding: 0.15rem 0.5rem; font-size: 0.8rem; }
+    .nav-link-tooltip { position: relative; }
+    .nav-link-tooltip[data-tooltip-visible="1"]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 0;
+      top: calc(100% + 8px);
+      background: rgba(23, 32, 38, 0.96);
+      color: #fff;
+      padding: 0.45rem 0.6rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      line-height: 1.2;
+      white-space: nowrap;
+      z-index: 20;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    }
+    .nav-link-tooltip[data-tooltip-visible="1"]::before {
+      content: "";
+      position: absolute;
+      left: 10px;
+      top: calc(100% + 2px);
+      border: 6px solid transparent;
+      border-bottom-color: rgba(23, 32, 38, 0.96);
+      z-index: 21;
+    }
+    @media (max-width: 680px) {
+      .nav-link-tooltip[data-tooltip-visible="1"]::after {
+        white-space: normal;
+        width: min(240px, 70vw);
+      }
+    }
   </style>
   {% block head %}{% endblock %}
 </head>
 <body>
   <header>
     <nav>
-      <a href="{{ url_for('workouts.index') }}">Workout Logger</a>
+      <a class="nav-link-tooltip" data-tooltip="Oversikt med nylige økter og raske snarveier." href="{{ url_for('workouts.index') }}">Hjem</a>
       {% if g.current_user %}
-        <a href="{{ url_for('workouts.create_workout') }}">New Workout</a>
-        <a href="{{ url_for('plans.list_plans') }}">Plans</a>
-        <a href="{{ url_for('stats.stats_index') }}">Stats</a>
-        <a href="{{ url_for('workouts.export_sets_csv') }}">CSV</a>
-        <a href="{{ url_for('workouts.export_sets_xlsx') }}">Excel</a>
+        <a class="nav-link-tooltip" data-tooltip="Opprett en ny treningsøkt manuelt." href="{{ url_for('workouts.create_workout') }}">Ny økt</a>
+        <a class="nav-link-tooltip" data-tooltip="Lag og start treningsøkter basert på planer." href="{{ url_for('plans.list_plans') }}">Treningsøkt bygger</a>
+        <a class="nav-link-tooltip" data-tooltip="Grafer for volum, estimert 1RM og tidsbasert arbeid." href="{{ url_for('stats.stats_index') }}">Stats</a>
+        <a class="nav-link-tooltip" data-tooltip="Last ned alle registrerte sett som CSV-fil." href="{{ url_for('workouts.export_sets_csv') }}">CSV</a>
+        <a class="nav-link-tooltip" data-tooltip="Last ned alle registrerte sett som Excel-fil (.xlsx)." href="{{ url_for('workouts.export_sets_xlsx') }}">Excel</a>
         <span class="pill">{{ g.current_user.username }}</span>
         <form method="post" action="{{ url_for('auth.logout') }}">
           <button type="submit" class="secondary">Logout</button>
@@ -61,5 +92,30 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+  <script>
+    (function () {
+      const tooltipLinks = document.querySelectorAll('.nav-link-tooltip[data-tooltip]');
+      tooltipLinks.forEach((link) => {
+        let timer = null;
+        const show = function () {
+          timer = window.setTimeout(() => {
+            link.dataset.tooltipVisible = '1';
+          }, 2000);
+        };
+        const hide = function () {
+          if (timer) {
+            window.clearTimeout(timer);
+            timer = null;
+          }
+          delete link.dataset.tooltipVisible;
+        };
+        link.addEventListener('mouseenter', show);
+        link.addEventListener('mouseleave', hide);
+        link.addEventListener('focus', show);
+        link.addEventListener('blur', hide);
+        link.addEventListener('touchstart', hide, { passive: true });
+      });
+    })();
+  </script>
 </body>
 </html>
