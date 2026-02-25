@@ -16,6 +16,15 @@
       </div>
       <label><input type="checkbox" name="dry_run" value="1" checked style="width:auto; margin-right:0.35rem;"> Dry-run (preview only)</label>
       <div>
+        <label for="default_plan_conflict_strategy">Default strategy for existing plans</label>
+        <select id="default_plan_conflict_strategy" name="default_plan_conflict_strategy">
+          <option value="skip" {% if json_default_plan_strategy == 'skip' %}selected{% endif %}>Skip</option>
+          <option value="merge" {% if (json_default_plan_strategy or 'merge') == 'merge' %}selected{% endif %}>Merge</option>
+          <option value="replace" {% if json_default_plan_strategy == 'replace' %}selected{% endif %}>Replace</option>
+        </select>
+        <p class="muted">Gjelder planer med samme navn som allerede finnes.</p>
+      </div>
+      <div>
         <label for="default_workout_conflict_strategy">Default strategy for existing workouts</label>
         <select id="default_workout_conflict_strategy" name="default_workout_conflict_strategy">
           <option value="skip" {% if (json_default_strategy or 'skip') == 'skip' %}selected{% endif %}>Skip</option>
@@ -51,6 +60,30 @@
             <td>{{ plan.name }}</td>
             <td>{{ plan.exercise_count }}</td>
             <td>{{ plan.exercise_examples|join(', ') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
+      {% if json_preview.plan_conflicts %}
+      <h4 style="margin-top:0.75rem;">Plan Conflicts ({{ json_preview.plan_conflicts|length }})</h4>
+      <p class="muted">Velg handling for eksisterende planer. <code>Merge</code> oppdaterer/importerer øvelser uten å fjerne planøvelser som ikke er med i importen. <code>Replace</code> erstatter planinnholdet.</p>
+      <table>
+        <thead><tr><th>Plan</th><th>Imported/Existing Exercises</th><th>Action</th></tr></thead>
+        <tbody>
+          {% for conflict in json_preview.plan_conflicts %}
+          <tr>
+            <td>{{ conflict.name }}</td>
+            <td>{{ conflict.import_exercise_count }} / {{ conflict.existing_exercise_count }}</td>
+            <td>
+              {% set selected_plan_strategy = json_plan_strategies.get(conflict.index, json_default_plan_strategy or 'merge') %}
+              <select name="plan_strategy_{{ conflict.index }}" form="json-import-form" style="max-width:120px;">
+                <option value="skip" {% if selected_plan_strategy == 'skip' %}selected{% endif %}>Skip</option>
+                <option value="merge" {% if selected_plan_strategy == 'merge' %}selected{% endif %}>Merge</option>
+                <option value="replace" {% if selected_plan_strategy == 'replace' %}selected{% endif %}>Replace</option>
+              </select>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -106,6 +139,7 @@
     {% if json_summary %}
     <div class="card" style="margin-top:1rem; background:#f8fafc;">
       <h3>JSON Import Summary{% if json_summary.dry_run %} (Dry-run){% endif %}</h3>
+      <p class="muted">Default plan conflict strategy: <code>{{ json_summary.default_plan_conflict_strategy }}</code></p>
       <p class="muted">Default conflict strategy: <code>{{ json_summary.default_workout_conflict_strategy }}</code></p>
       <table>
         <tbody>

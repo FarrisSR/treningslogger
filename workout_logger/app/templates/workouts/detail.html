@@ -2,6 +2,19 @@
 {% block title %}{{ workout.title }} | Workout Logger{% endblock %}
 {% block head %}
 <script defer src="{{ url_for('static', filename='js/workout_detail.js') }}"></script>
+<style>
+  .plan-mode-mobile { display: none; }
+  .plan-row-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.65rem; margin-bottom: 0.5rem; background: #fafafa; }
+  .plan-row-card .meta { font-size: 0.9rem; color: #66727f; margin-bottom: 0.4rem; }
+  .set-edit-details { min-width: 180px; }
+  .set-edit-details summary { cursor: pointer; color: #0b7a75; font-weight: 600; }
+  .set-edit-form { margin-top: 0.5rem; display: grid; gap: 0.5rem; min-width: 230px; }
+  .set-edit-form .inline > * { min-width: 70px; }
+  @media (max-width: 700px) {
+    .plan-mode-desktop { display: none; }
+    .plan-mode-mobile { display: block; }
+  }
+</style>
 {% endblock %}
 {% block content %}
 <div class="grid grid-2">
@@ -142,7 +155,7 @@
               {% endif %}
             </span>
           </div>
-          <table>
+          <table class="plan-mode-desktop">
             <thead><tr><th>Set</th><th>Target</th><th>Status</th><th>Quick Log</th></tr></thead>
             <tbody>
               {% for row in section.rows %}
@@ -199,6 +212,72 @@
               {% endfor %}
             </tbody>
           </table>
+          <div class="plan-mode-mobile">
+            {% for row in section.rows %}
+              <div class="plan-row-card">
+                <div style="display:flex; justify-content:space-between; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                  <strong>Set {{ row.set_no }}</strong>
+                  <span class="meta">Target: {{ section.target_reps or '' }}</span>
+                </div>
+                <div class="meta">
+                  {% if row.logged %}
+                    {% for s in row.logged %}
+                      <div>
+                        Done:
+                        {% if s.duration_seconds is not none %}
+                          {{ s.duration_seconds|fmt_duration }}
+                        {% else %}
+                          {{ s.reps }} reps
+                        {% endif %}
+                        @ {{ '%.2f'|format(s.weight_kg) }}kg{% if s.rpe is not none %}, RPE {{ s.rpe }}{% endif %}
+                      </div>
+                    {% endfor %}
+                  {% else %}
+                    <div>Pending</div>
+                    {% if row.previous_set %}
+                      <div>
+                        Prev:
+                        {% if row.previous_set.duration_seconds is not none %}
+                          {{ row.previous_set.duration_seconds|fmt_duration }}
+                        {% else %}
+                          {{ row.previous_set.reps }} reps
+                        {% endif %}
+                        @ {{ '%.2f'|format(row.previous_set.weight_kg) }}kg{% if row.previous_set.rpe is not none %}, RPE {{ row.previous_set.rpe }}{% endif %}
+                      </div>
+                    {% endif %}
+                  {% endif %}
+                </div>
+                {% if not row.logged %}
+                  <form method="post" action="{{ url_for('workouts.add_set', workout_id=workout.id) }}" class="grid">
+                    <input type="hidden" name="exercise_id" value="{{ section.exercise.id }}">
+                    <input type="hidden" name="set_no" value="{{ row.set_no }}">
+                    {% if row.target_mode == 'duration' %}
+                      <div>
+                        <label>Duration (sec)</label>
+                        <input name="duration_seconds" type="number" min="1" step="1" value="{{ row.suggested_duration_seconds if row.suggested_duration_seconds is not none else '' }}" readonly>
+                      </div>
+                    {% else %}
+                      <div>
+                        <label>Reps</label>
+                        <input name="reps" type="number" min="0" step="1" value="{{ row.suggested_reps if row.suggested_reps is not none else '' }}" required>
+                      </div>
+                    {% endif %}
+                    <div class="inline">
+                      <div>
+                        <label>kg</label>
+                        <input name="weight_kg" type="number" min="0" step="0.5" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else '' }}" required>
+                      </div>
+                      <div>
+                        <label>RPE</label>
+                        <input name="rpe" type="number" min="0" max="10" step="0.5">
+                      </div>
+                    </div>
+                    <button type="submit">Save Set {{ row.set_no }}</button>
+                  </form>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
         </div>
       {% endfor %}
     </div>
@@ -221,9 +300,41 @@
               <td>{{ '%.2f'|format(s.weight_kg) }}</td>
               <td>{{ s.rpe if s.rpe is not none else '' }}</td>
               <td>
-                <form method="post" action="{{ url_for('workouts.delete_set', workout_id=workout.id, set_id=s.id) }}">
-                  <button type="submit" class="secondary">Delete</button>
-                </form>
+                <details class="set-edit-details">
+                  <summary>Edit</summary>
+                  <form method="post" action="{{ url_for('workouts.update_set', workout_id=workout.id, set_id=s.id) }}" class="set-edit-form">
+                    <div class="inline">
+                      <div>
+                        <label>Set</label>
+                        <input name="set_no" type="number" min="1" value="{{ s.set_no }}" required>
+                      </div>
+                      <div>
+                        <label>Reps</label>
+                        <input name="reps" type="number" min="0" step="1" value="{{ s.reps if s.reps is not none else '' }}">
+                      </div>
+                      <div>
+                        <label>Sec</label>
+                        <input name="duration_seconds" type="number" min="1" step="1" value="{{ s.duration_seconds if s.duration_seconds is not none else '' }}">
+                      </div>
+                    </div>
+                    <div class="inline">
+                      <div>
+                        <label>kg</label>
+                        <input name="weight_kg" type="number" min="0" step="0.5" value="{{ s.weight_kg }}">
+                      </div>
+                      <div>
+                        <label>RPE</label>
+                        <input name="rpe" type="number" min="0" max="10" step="0.5" value="{{ s.rpe if s.rpe is not none else '' }}">
+                      </div>
+                    </div>
+                    <div class="inline">
+                      <button type="submit">Save</button>
+                    </div>
+                  </form>
+                  <form method="post" action="{{ url_for('workouts.delete_set', workout_id=workout.id, set_id=s.id) }}" style="margin-top:0.4rem;">
+                    <button type="submit" class="secondary">Delete</button>
+                  </form>
+                </details>
               </td>
             </tr>
             {% endfor %}

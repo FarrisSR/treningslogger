@@ -395,6 +395,65 @@ def delete_set(workout_id: int, set_id: int):
     return redirect(url_for("workouts.view_workout", workout_id=workout.id))
 
 
+@bp.post("/workouts/<int:workout_id>/sets/<int:set_id>/update")
+@login_required
+def update_set(workout_id: int, set_id: int):
+    user = require_user()
+    workout = _user_workout_or_404(user.id, workout_id)
+    set_entry = SetEntry.query.filter_by(id=set_id, workout_id=workout.id, user_id=user.id).first()
+    if set_entry is None:
+        abort(404)
+
+    try:
+        set_no = int(request.form.get("set_no") or "")
+        reps_raw = (request.form.get("reps") or "").strip()
+        duration_raw = (request.form.get("duration_seconds") or "").strip()
+        reps = int(reps_raw) if reps_raw else None
+        duration_seconds = int(duration_raw) if duration_raw else None
+        weight_kg = float(request.form.get("weight_kg") or "0")
+        rpe_raw = (request.form.get("rpe") or "").strip()
+        rpe = float(rpe_raw) if rpe_raw else None
+    except ValueError:
+        flash("Set values are invalid.", "error")
+        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=set_entry.exercise_id))
+
+    if set_no < 1 or weight_kg < 0:
+        flash("Set number and weight must be non-negative (set number starts at 1).", "error")
+        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=set_entry.exercise_id))
+    if reps is None and duration_seconds is None:
+        flash("Provide either reps or duration.", "error")
+        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=set_entry.exercise_id))
+    if reps is not None and reps < 0:
+        flash("Reps must be 0 or more.", "error")
+        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=set_entry.exercise_id))
+    if duration_seconds is not None and duration_seconds < 1:
+        flash("Duration must be at least 1 second.", "error")
+        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=set_entry.exercise_id))
+    if reps is not None and duration_seconds is not None:
+        flash("Use either reps or duration for a set, not both.", "error")
+        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=set_entry.exercise_id))
+
+    duplicate = SetEntry.query.filter(
+        SetEntry.user_id == user.id,
+        SetEntry.workout_id == workout.id,
+        SetEntry.exercise_id == set_entry.exercise_id,
+        SetEntry.set_no == set_no,
+        SetEntry.id != set_entry.id,
+    ).first()
+    if duplicate is not None:
+        flash(f"Set #{set_no} already exists for this exercise.", "error")
+        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=set_entry.exercise_id))
+
+    set_entry.set_no = set_no
+    set_entry.reps = reps
+    set_entry.duration_seconds = duration_seconds
+    set_entry.weight_kg = weight_kg
+    set_entry.rpe = rpe
+    db.session.commit()
+    flash("Set updated.", "success")
+    return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=set_entry.exercise_id))
+
+
 @bp.post("/workouts/<int:workout_id>/delete")
 @login_required
 def delete_workout(workout_id: int):
@@ -546,9 +605,15 @@ def _find_duplicate_workout_for_import(user_id: int, title: str, workout_date: d
     ).first()
 
 
+def _find_duplicate_plan_for_import(user_id: int, plan_name: str) -> WorkoutPlan | None:
+    return WorkoutPlan.query.filter_by(user_id=user_id, name=plan_name).first()
+
+
 def _import_workouts_json_payload(
     user_id: int,
     payload: dict,
+    default_plan_conflict_strategy: str = "merge",
+    plan_strategies: dict[int, str] | None = None,
     default_workout_conflict_strategy: str = "skip",
     workout_strategies: dict[int, str] | None = None,
 ) -> dict:
@@ -556,12 +621,17 @@ def _import_workouts_json_payload(
         raise ValueError("JSON root must be an object.")
     if default_workout_conflict_strategy not in {"skip", "merge", "replace"}:
         raise ValueError("Invalid default workout conflict strategy.")
+    if default_plan_conflict_strategy not in {"skip", "merge", "replace"}:
+        raise ValueError("Invalid default plan conflict strategy.")
     workout_strategies = workout_strategies or {}
+    plan_strategies = plan_strategies or {}
 
     summary = {
         "exercises_created": 0,
         "plans_created": 0,
-        "plans_updated": 0,
+        "plans_skipped": 0,
+        "plans_merged": 0,
+        "plans_replaced": 0,
         "workouts_created": 0,
         "workouts_skipped": 0,
         "workouts_merged": 0,
@@ -597,39 +667,91 @@ def _import_workouts_json_payload(
             ensure_exercise(ex.get("name"))
 
     plan_cache_by_name: dict[str, WorkoutPlan] = {}
-    for plan_payload in payload.get("plans", []) or []:
+    for plan_index, plan_payload in enumerate(payload.get("plans", []) or []):
         if not isinstance(plan_payload, dict):
             continue
         plan_name = " ".join(str(plan_payload.get("name") or "").split())
         if not plan_name:
             continue
-        plan = WorkoutPlan.query.filter_by(user_id=user_id, name=plan_name).first()
+        plan = _find_duplicate_plan_for_import(user_id, plan_name)
+        plan_strategy = plan_strategies.get(plan_index, default_plan_conflict_strategy)
+        if plan_strategy not in {"skip", "merge", "replace"}:
+            plan_strategy = default_plan_conflict_strategy
+
         if plan is None:
             plan = WorkoutPlan(user_id=user_id, name=plan_name)
             db.session.add(plan)
             db.session.flush()
             summary["plans_created"] += 1
+        elif plan_strategy == "skip":
+            summary["plans_skipped"] += 1
+            plan_cache_by_name[plan_name.lower()] = plan
+            continue
+        elif plan_strategy == "replace":
+            summary["plans_replaced"] += 1
         else:
-            summary["plans_updated"] += 1
+            summary["plans_merged"] += 1
 
         plan.description = (plan_payload.get("description") or None)
-        plan.exercises.clear()
-        db.session.flush()
+        incoming_exercises = [pe for pe in (plan_payload.get("exercises") or []) if isinstance(pe, dict)]
 
-        for idx, pe in enumerate((plan_payload.get("exercises") or []), start=1):
-            if not isinstance(pe, dict):
-                continue
-            exercise = ensure_exercise(pe.get("exercise"))
-            if exercise is None:
-                continue
-            plan.exercises.append(
-                PlanExercise(
-                    exercise_id=exercise.id,
-                    position=_parse_optional_int(pe.get("position")) or idx,
-                    target_sets=_parse_optional_int(pe.get("target_sets")),
-                    target_reps=(str(pe.get("target_reps")).strip() if pe.get("target_reps") is not None else None),
+        if plan_strategy == "replace":
+            plan.exercises.clear()
+            db.session.flush()
+            for idx, pe in enumerate(incoming_exercises, start=1):
+                exercise = ensure_exercise(pe.get("exercise"))
+                if exercise is None:
+                    continue
+                plan.exercises.append(
+                    PlanExercise(
+                        exercise_id=exercise.id,
+                        position=_parse_optional_int(pe.get("position")) or idx,
+                        target_sets=_parse_optional_int(pe.get("target_sets")),
+                        target_reps=(str(pe.get("target_reps")).strip() if pe.get("target_reps") is not None else None),
+                    )
                 )
-            )
+        elif plan_strategy == "merge" and plan.id is not None:
+            existing_by_exercise_name = {}
+            for existing_pe in plan.exercises:
+                if existing_pe.exercise is not None:
+                    existing_by_exercise_name[existing_pe.exercise.name.lower()] = existing_pe
+            next_position = max((pe.position or 0 for pe in plan.exercises), default=0) + 1
+            for idx, pe in enumerate(incoming_exercises, start=1):
+                exercise = ensure_exercise(pe.get("exercise"))
+                if exercise is None:
+                    continue
+                target_sets = _parse_optional_int(pe.get("target_sets"))
+                target_reps = (str(pe.get("target_reps")).strip() if pe.get("target_reps") is not None else None)
+                pos = _parse_optional_int(pe.get("position")) or idx
+                existing_pe = existing_by_exercise_name.get(exercise.name.lower())
+                if existing_pe is None:
+                    plan.exercises.append(
+                        PlanExercise(
+                            exercise_id=exercise.id,
+                            position=max(pos, next_position),
+                            target_sets=target_sets,
+                            target_reps=target_reps,
+                        )
+                    )
+                    next_position += 1
+                else:
+                    existing_pe.position = pos
+                    existing_pe.target_sets = target_sets
+                    existing_pe.target_reps = target_reps
+        else:
+            # New plan: populate with imported exercises.
+            for idx, pe in enumerate(incoming_exercises, start=1):
+                exercise = ensure_exercise(pe.get("exercise"))
+                if exercise is None:
+                    continue
+                plan.exercises.append(
+                    PlanExercise(
+                        exercise_id=exercise.id,
+                        position=_parse_optional_int(pe.get("position")) or idx,
+                        target_sets=_parse_optional_int(pe.get("target_sets")),
+                        target_reps=(str(pe.get("target_reps")).strip() if pe.get("target_reps") is not None else None),
+                    )
+                )
         plan_cache_by_name[plan_name.lower()] = plan
 
     for workout_index, workout_payload in enumerate(payload.get("workouts", []) or []):
@@ -772,6 +894,7 @@ def _preview_workouts_json_payload(payload: dict, user_id: int | None = None) ->
     exercises = [e for e in (payload.get("exercises") or []) if isinstance(e, dict)]
 
     preview_plans = []
+    plan_conflicts = []
     for plan in plans[:5]:
         plan_exercises = [pe for pe in (plan.get("exercises") or []) if isinstance(pe, dict)]
         preview_plans.append(
@@ -785,6 +908,22 @@ def _preview_workouts_json_payload(payload: dict, user_id: int | None = None) ->
                 ],
             }
         )
+    if user_id is not None:
+        for idx, plan in enumerate(plans):
+            plan_name = str(plan.get("name") or "").strip()
+            if not plan_name:
+                continue
+            existing = _find_duplicate_plan_for_import(user_id, plan_name)
+            if existing is not None:
+                plan_exercises = [pe for pe in (plan.get("exercises") or []) if isinstance(pe, dict)]
+                plan_conflicts.append(
+                    {
+                        "index": idx,
+                        "name": plan_name,
+                        "import_exercise_count": len(plan_exercises),
+                        "existing_exercise_count": len(existing.exercises),
+                    }
+                )
 
     preview_workouts = []
     workout_conflicts = []
@@ -839,9 +978,11 @@ def _preview_workouts_json_payload(payload: dict, user_id: int | None = None) ->
             "exercises_count": len(exercises),
             "plans_count": len(plans),
             "workouts_count": len(workouts),
+            "plan_conflicts_count": len(plan_conflicts),
             "workout_conflicts_count": len(workout_conflicts),
         },
         "plans": preview_plans,
+        "plan_conflicts": plan_conflicts,
         "workouts": preview_workouts,
         "workout_conflicts": workout_conflicts,
     }
@@ -1085,7 +1226,9 @@ def import_tools():
         csv_summary=None,
         json_preview=None,
         json_text_value="",
+        json_default_plan_strategy="merge",
         json_default_strategy="skip",
+        json_plan_strategies={},
         json_workout_strategies={},
     )
 
@@ -1096,9 +1239,21 @@ def import_workouts_json():
     user = require_user()
     raw_text = _read_upload_text("json_file", "json_text")
     dry_run = bool(request.form.get("dry_run"))
+    default_plan_strategy = (request.form.get("default_plan_conflict_strategy") or "merge").strip().lower()
+    if default_plan_strategy not in {"skip", "merge", "replace"}:
+        default_plan_strategy = "merge"
     default_strategy = (request.form.get("default_workout_conflict_strategy") or "skip").strip().lower()
     if default_strategy not in {"skip", "merge", "replace"}:
         default_strategy = "skip"
+    plan_strategy_overrides = {}
+    for key, value in request.form.items():
+        if not key.startswith("plan_strategy_"):
+            continue
+        idx_part = key.removeprefix("plan_strategy_")
+        if idx_part.isdigit():
+            choice = (value or "").strip().lower()
+            if choice in {"skip", "merge", "replace"}:
+                plan_strategy_overrides[int(idx_part)] = choice
     workout_strategy_overrides = {}
     for key, value in request.form.items():
         if not key.startswith("workout_strategy_"):
@@ -1125,17 +1280,22 @@ def import_workouts_json():
                 csv_summary=None,
                 json_preview=json_preview,
                 json_text_value=raw_text,
+                json_default_plan_strategy=default_plan_strategy,
                 json_default_strategy=default_strategy,
+                json_plan_strategies=plan_strategy_overrides,
                 json_workout_strategies=workout_strategy_overrides,
             )
         summary = _import_workouts_json_payload(
             user.id,
             payload,
+            default_plan_conflict_strategy=default_plan_strategy,
+            plan_strategies=plan_strategy_overrides,
             default_workout_conflict_strategy=default_strategy,
             workout_strategies=workout_strategy_overrides,
         )
         json_summary = {
             "dry_run": dry_run,
+            "default_plan_conflict_strategy": default_plan_strategy,
             "default_workout_conflict_strategy": default_strategy,
             "summary": summary,
         }
@@ -1155,7 +1315,9 @@ def import_workouts_json():
         csv_summary=csv_summary,
         json_preview=json_preview,
         json_text_value=raw_text,
+        json_default_plan_strategy=default_plan_strategy,
         json_default_strategy=default_strategy,
+        json_plan_strategies=plan_strategy_overrides,
         json_workout_strategies=workout_strategy_overrides,
     )
 
@@ -1194,6 +1356,8 @@ def import_sets_csv():
         csv_summary=csv_summary,
         json_preview=json_preview,
         json_text_value="",
+        json_default_plan_strategy="merge",
         json_default_strategy="skip",
+        json_plan_strategies={},
         json_workout_strategies={},
     )
