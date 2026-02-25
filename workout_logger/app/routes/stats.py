@@ -8,7 +8,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from flask import Blueprint, Response, render_template
 
-from ..services.stats import pr_estimate_points, weekly_volume_points
+from ..services.stats import pr_estimate_points, weekly_duration_points, weekly_volume_points
 from . import login_required, require_user
 
 bp = Blueprint("stats", __name__, url_prefix="/stats")
@@ -62,5 +62,18 @@ def pr_png():
         title="Estimated 1RM (Epley)",
         ylabel="Estimated 1RM (kg)",
         color="#c05621",
+    )
+    return Response(png, mimetype="image/png")
+
+
+@bp.get("/time.png")
+@login_required
+def time_png():
+    user = require_user()
+    png = _line_chart_png(
+        weekly_duration_points(user.id),
+        title="Weekly Time Under Tension / Holds",
+        ylabel="Seconds",
+        color="#1d4ed8",
     )
     return Response(png, mimetype="image/png")

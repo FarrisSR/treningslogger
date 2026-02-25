@@ -45,3 +45,19 @@ def pr_estimate_points(user_id: int):
         if est_1rm > best_by_day[day]:
             best_by_day[day] = est_1rm
     return sorted(best_by_day.items(), key=lambda item: item[0])
+
+
+def weekly_duration_points(user_id: int):
+    rows = (
+        SetEntry.query.join(Workout, SetEntry.workout_id == Workout.id)
+        .filter(SetEntry.user_id == user_id, Workout.user_id == user_id, SetEntry.duration_seconds.isnot(None))
+        .options(joinedload(SetEntry.workout))
+        .order_by(Workout.workout_date.asc())
+        .all()
+    )
+    totals = defaultdict(int)
+    for row in rows:
+        if row.workout is None or row.duration_seconds is None:
+            continue
+        totals[_week_start(row.workout.workout_date)] += int(row.duration_seconds)
+    return sorted(totals.items(), key=lambda item: item[0])

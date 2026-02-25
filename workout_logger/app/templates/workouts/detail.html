@@ -6,8 +6,15 @@
 {% block content %}
 <div class="grid grid-2">
   <section class="card">
-    <h1>{{ workout.title }}</h1>
-    <p class="muted">{{ workout.workout_date }}{% if workout.plan %} · Plan: {{ workout.plan.name }}{% endif %}</p>
+    <div style="display:flex; justify-content:space-between; align-items:start; gap:0.75rem; flex-wrap:wrap;">
+      <div>
+        <h1 style="margin:0;">{{ workout.title }}</h1>
+        <p class="muted" style="margin:0.35rem 0 0;">{{ workout.workout_date }}{% if workout.plan %} · Plan: {{ workout.plan.name }}{% endif %}</p>
+      </div>
+      <form method="post" action="{{ url_for('workouts.delete_workout', workout_id=workout.id) }}" onsubmit="return confirm('Delete this workout and all sets?');">
+        <button type="submit" class="secondary" style="background:#b91c1c;">Delete Workout</button>
+      </form>
+    </div>
     <form method="post" action="{{ url_for('workouts.update_workout', workout_id=workout.id) }}" class="grid">
       <div>
         <label for="duration_minutes">Duration (min)</label>
@@ -23,18 +30,65 @@
 
   <section class="card">
     <h2>Add Set</h2>
-    {% if plan_exercise_ids %}
-      <p class="muted">Plan exercises are available in the selector. You can also type a new one.</p>
+    {% if plan_exercise_items %}
+      <p class="muted">Plan exercises are listed first with targets and progress. You can still log an extra exercise if needed.</p>
     {% endif %}
     <form method="post" action="{{ url_for('workouts.add_set', workout_id=workout.id) }}" class="grid" id="add-set-form">
       <div>
         <label for="exercise_id">Exercise</label>
         <select id="exercise_id" name="exercise_id">
           <option value="">Select an exercise</option>
-          {% for exercise in exercises %}
-            <option value="{{ exercise.id }}">{{ exercise.name }}</option>
-          {% endfor %}
+          {% if plan_exercise_items %}
+            <optgroup label="Plan Exercises">
+              {% for item in plan_exercise_items %}
+                {% set exercise = item.exercise %}
+                <option value="{{ exercise.id }}"
+                        data-next-set="{{ item.next_set_no }}"
+                        data-target-sets="{{ item.target_sets or '' }}"
+                        data-target-reps="{{ item.target_reps or '' }}"
+                        data-logged-sets="{{ item.logged_sets }}"
+                        data-suggested-reps="{{ item.suggested_reps if item.suggested_reps is not none else '' }}"
+                        data-suggested-duration="{{ item.suggested_duration_seconds if item.suggested_duration_seconds is not none else '' }}"
+                        data-target-mode="{{ item.target_mode }}"
+                        {% if selected_exercise_id == exercise.id %}selected{% endif %}>
+                  {{ exercise.name }}
+                  {% if item.target_sets or item.target_reps %}
+                    ({{ item.target_sets or '' }}{% if item.target_sets and item.target_reps %} x {% endif %}{{ item.target_reps or '' }})
+                  {% endif %}
+                  {% if item.target_sets %}
+                    · {{ item.logged_sets }}/{{ item.target_sets }} sets
+                  {% endif %}
+                </option>
+              {% endfor %}
+            </optgroup>
+            {% if other_exercises %}
+            <optgroup label="Other Exercises">
+              {% for exercise in other_exercises %}
+                <option value="{{ exercise.id }}"
+                        data-next-set="{{ next_set_no_by_exercise.get(exercise.id, 1) }}"
+                        data-suggested-reps=""
+                        data-suggested-duration=""
+                        data-target-mode="reps"
+                        {% if selected_exercise_id == exercise.id %}selected{% endif %}>
+                  {{ exercise.name }}
+                </option>
+              {% endfor %}
+            </optgroup>
+            {% endif %}
+          {% else %}
+            {% for exercise in exercises %}
+              <option value="{{ exercise.id }}"
+                      data-next-set="{{ next_set_no_by_exercise.get(exercise.id, 1) }}"
+                      data-suggested-reps=""
+                      data-suggested-duration=""
+                      data-target-mode="reps"
+                      {% if selected_exercise_id == exercise.id %}selected{% endif %}>
+                {{ exercise.name }}
+              </option>
+            {% endfor %}
+          {% endif %}
         </select>
+        <div id="exercise-plan-meta" class="muted" style="margin-top:0.35rem;"></div>
       </div>
       <div>
         <label for="exercise_name">Or create exercise</label>
@@ -43,11 +97,15 @@
       <div class="inline">
         <div>
           <label for="set_no">Set #</label>
-          <input id="set_no" name="set_no" type="number" min="1" value="1" required>
+          <input id="set_no" name="set_no" type="number" min="1" value="{{ selected_set_no }}" required>
         </div>
-        <div>
+        <div id="reps-field">
           <label for="reps">Reps</label>
           <input id="reps" name="reps" type="number" min="0" step="1" required>
+        </div>
+        <div id="duration-field" hidden>
+          <label for="duration_seconds">Duration (sec)</label>
+          <input id="duration_seconds" name="duration_seconds" type="number" min="1" step="1">
         </div>
         <div>
           <label for="weight_kg">Weight (kg)</label>
@@ -64,18 +122,88 @@
 </div>
 
 <div class="grid grid-2" style="margin-top:1rem;">
+  {% if plan_mode_sections %}
+  <section class="card" style="grid-column: 1 / -1;">
+    <h2>Plan Mode</h2>
+    <p class="muted">Planlagte sett vises under. Reps foreslås fra planen når mulig. For tidsbaserte targets som <code>45s</code> kommer varighet ferdig utfylt og låst.</p>
+    <div class="grid">
+      {% for section in plan_mode_sections %}
+        <div style="border:1px solid #d6dbe0; border-radius:8px; padding:0.75rem;">
+          <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+            <strong>{{ section.exercise.name }}</strong>
+            <span class="muted">
+              {% if section.target_sets or section.target_reps %}
+                Target: {{ section.target_sets or '' }}{% if section.target_sets and section.target_reps %} x {% endif %}{{ section.target_reps or '' }}
+              {% else %}
+                No target
+              {% endif %}
+            </span>
+          </div>
+          <table>
+            <thead><tr><th>Set</th><th>Target</th><th>Status</th><th>Quick Log</th></tr></thead>
+            <tbody>
+              {% for row in section.rows %}
+              <tr>
+                <td>{{ row.set_no }}</td>
+                <td>{{ section.target_reps or '' }}</td>
+                <td>
+                  {% if row.logged %}
+                    {% for s in row.logged %}
+                      <div class="muted">
+                        Done:
+                        {% if s.duration_seconds is not none %}
+                          {{ s.duration_seconds|fmt_duration }}
+                        {% else %}
+                          {{ s.reps }} reps
+                        {% endif %}
+                        @ {{ '%.2f'|format(s.weight_kg) }}kg{% if s.rpe is not none %}, RPE {{ s.rpe }}{% endif %}
+                      </div>
+                    {% endfor %}
+                  {% else %}
+                    <span class="muted">Pending</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if not row.logged %}
+                  <form method="post" action="{{ url_for('workouts.add_set', workout_id=workout.id) }}" class="inline" style="align-items:center;">
+                    <input type="hidden" name="exercise_id" value="{{ section.exercise.id }}">
+                    <input type="hidden" name="set_no" value="{{ row.set_no }}">
+                    {% if row.target_mode == 'duration' %}
+                      <input name="duration_seconds" type="number" min="1" step="1" value="{{ row.suggested_duration_seconds if row.suggested_duration_seconds is not none else '' }}" style="max-width:120px;" readonly>
+                    {% else %}
+                      <input name="reps" type="number" min="0" step="1" value="{{ row.suggested_reps if row.suggested_reps is not none else '' }}" placeholder="Reps" style="max-width:90px;" required>
+                    {% endif %}
+                    <input name="weight_kg" type="number" min="0" step="0.5" placeholder="kg" style="max-width:110px;" required>
+                    <input name="rpe" type="number" min="0" max="10" step="0.5" placeholder="RPE" style="max-width:90px;">
+                    <button type="submit">Save</button>
+                  </form>
+                  {% else %}
+                    <span class="muted">Logged</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   <section class="card">
     <h2>Logged Sets</h2>
     {% if grouped_sets %}
       {% for exercise in exercises if grouped_sets.get(exercise.id) %}
         <h3>{{ exercise.name }}</h3>
         <table>
-          <thead><tr><th>Set</th><th>Reps</th><th>Weight</th><th>RPE</th><th></th></tr></thead>
+          <thead><tr><th>Set</th><th>Reps</th><th>Duration</th><th>Weight</th><th>RPE</th><th></th></tr></thead>
           <tbody>
             {% for s in grouped_sets.get(exercise.id, []) %}
             <tr>
               <td>{{ s.set_no }}</td>
-              <td>{{ s.reps }}</td>
+              <td>{{ s.reps if s.reps is not none else '' }}</td>
+              <td>{{ s.duration_seconds|fmt_duration if s.duration_seconds is not none else '' }}</td>
               <td>{{ '%.2f'|format(s.weight_kg) }}</td>
               <td>{{ s.rpe if s.rpe is not none else '' }}</td>
               <td>

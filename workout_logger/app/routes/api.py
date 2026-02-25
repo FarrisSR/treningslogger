@@ -57,6 +57,7 @@ def exercise_hint(workout_id: int):
                 {
                     "set_no": s.set_no,
                     "reps": s.reps,
+                    "duration_seconds": s.duration_seconds,
                     "weight_kg": s.weight_kg,
                     "rpe": s.rpe,
                 }
