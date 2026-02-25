@@ -125,7 +125,10 @@
   {% if plan_mode_sections %}
   <section class="card" style="grid-column: 1 / -1;">
     <h2>Plan Mode</h2>
-    <p class="muted">Planlagte sett vises under. Reps foreslås fra planen når mulig. For tidsbaserte targets som <code>45s</code> kommer varighet ferdig utfylt og låst.</p>
+    <p class="muted">
+      Planlagte sett vises under. Reps foreslås fra planen når mulig. For tidsbaserte targets som <code>45s</code> kommer varighet ferdig utfylt og låst.
+      {% if previous_workout %}Vekt er forhåndsutfylt fra forrige matching økt ({{ previous_workout.workout_date }} · {{ previous_workout.title }}).{% endif %}
+    </p>
     <div class="grid">
       {% for section in plan_mode_sections %}
         <div style="border:1px solid #d6dbe0; border-radius:8px; padding:0.75rem;">
@@ -160,7 +163,18 @@
                       </div>
                     {% endfor %}
                   {% else %}
-                    <span class="muted">Pending</span>
+                    <div class="muted">Pending</div>
+                    {% if row.previous_set %}
+                      <div class="muted">
+                        Prev:
+                        {% if row.previous_set.duration_seconds is not none %}
+                          {{ row.previous_set.duration_seconds|fmt_duration }}
+                        {% else %}
+                          {{ row.previous_set.reps }} reps
+                        {% endif %}
+                        @ {{ '%.2f'|format(row.previous_set.weight_kg) }}kg{% if row.previous_set.rpe is not none %}, RPE {{ row.previous_set.rpe }}{% endif %}
+                      </div>
+                    {% endif %}
                   {% endif %}
                 </td>
                 <td>
@@ -173,7 +187,7 @@
                     {% else %}
                       <input name="reps" type="number" min="0" step="1" value="{{ row.suggested_reps if row.suggested_reps is not none else '' }}" placeholder="Reps" style="max-width:90px;" required>
                     {% endif %}
-                    <input name="weight_kg" type="number" min="0" step="0.5" placeholder="kg" style="max-width:110px;" required>
+                    <input name="weight_kg" type="number" min="0" step="0.5" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else '' }}" placeholder="kg" style="max-width:110px;" required>
                     <input name="rpe" type="number" min="0" max="10" step="0.5" placeholder="RPE" style="max-width:90px;">
                     <button type="submit">Save</button>
                   </form>
