@@ -1,0 +1,14 @@
+<section class="card">
+  <h2>Øktdetaljer</h2>
+  <form method="post" action="{{ url_for('workouts.update_workout', workout_id=workout.id) }}" class="grid">
+    <div>
+      <label for="duration_minutes">Duration (min)</label>
+      <input id="duration_minutes" name="duration_minutes" type="number" min="0" value="{{ workout.duration_minutes or '' }}">
+    </div>
+    <div>
+      <label for="notes">Workout Notes</label>
+      <textarea id="notes" name="notes" rows="4">{{ workout.notes or '' }}</textarea>
+    </div>
+    <button type="submit">Save Workout Details</button>
+  </form>
+</section>
