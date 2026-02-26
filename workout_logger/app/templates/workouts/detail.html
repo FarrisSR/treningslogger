@@ -11,11 +11,13 @@
   .set-edit-form { margin-top: 0.5rem; display: grid; gap: 0.5rem; min-width: 230px; }
   .set-edit-form .inline > * { min-width: 70px; }
   .workout-plan-view-root[data-view-mode="tabs"] .plan-group-accordion-header { display: none; }
+  .workout-plan-view-root[data-view-mode="tabs"] .plan-group-card { display: none; }
+  .workout-plan-view-root[data-view-mode="tabs"] .plan-group-card[data-active="1"] { display: block; }
   .workout-plan-view-root[data-view-mode="tabs"] .plan-group-body { display: none; }
   .workout-plan-view-root[data-view-mode="tabs"] .plan-group-body[data-active="1"] { display: block; }
   .workout-plan-view-root[data-view-mode="tabs"] .plan-view-tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
-  .workout-plan-view-root[data-view-mode="tabs"] .plan-view-tab-btn { width: auto; padding: 0.45rem 0.65rem; background: #e5e7eb; color: #111827; border: 1px solid #d1d5db; }
-  .workout-plan-view-root[data-view-mode="tabs"] .plan-view-tab-btn[data-active="1"] { background: #0b7a75; color: #fff; border-color: #0b7a75; }
+  .workout-plan-view-root[data-view-mode="tabs"] .plan-view-tab-btn { width: auto; padding: 0.45rem 0.75rem; background: #e5e7eb; color: #111827; border: 1px solid #d1d5db; border-radius: 10px 10px 0 0; border-bottom-width: 2px; }
+  .workout-plan-view-root[data-view-mode="tabs"] .plan-view-tab-btn[data-active="1"] { background: #ffffff; color: #0b7a75; border-color: #0b7a75; border-bottom-color: #ffffff; }
   .workout-plan-view-root[data-view-mode="accordion"] .plan-view-tabs { display: none; }
   .workout-plan-view-root[data-view-mode="accordion"] .plan-group-body { display: none; }
   .workout-plan-view-root[data-view-mode="accordion"] .plan-group-body[data-active="1"] { display: block; }
@@ -165,7 +167,7 @@
         <div style="min-width:190px;">
           <label for="workout_view_mode" style="color:#66727f;">Visning</label>
           <select id="workout_view_mode" name="workout_view_mode" onchange="this.form.submit()">
-            <option value="accordion" {% if workout_view_mode == 'accordion' %}selected{% endif %}>Accordion</option>
+            <option value="accordion" {% if workout_view_mode == 'accordion' %}selected{% endif %}>Rullegardin</option>
             <option value="tabs" {% if workout_view_mode == 'tabs' %}selected{% endif %}>Fliker</option>
             <option value="list" {% if workout_view_mode == 'list' %}selected{% endif %}>Liste</option>
           </select>

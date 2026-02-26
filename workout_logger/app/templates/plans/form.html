@@ -1,23 +1,23 @@
 {% extends 'base.html' %}
-{% block title %}Ny Treningsøkt bygger | Workout Logger{% endblock %}
+{% block title %}{% if is_edit %}Rediger Treningsøkt bygger{% else %}Ny Treningsøkt bygger{% endif %} | Workout Logger{% endblock %}
 {% block content %}
 <div class="card" style="max-width:800px;">
-  <h1>Ny Treningsøkt bygger</h1>
+  <h1>{% if is_edit %}Rediger Treningsøkt bygger{% else %}Ny Treningsøkt bygger{% endif %}</h1>
   <form method="post" class="grid">
     <div>
       <label for="name">Navn</label>
-      <input id="name" name="name" required>
+      <input id="name" name="name" value="{{ (form_data.name if form_data else '') or '' }}" required>
     </div>
     <div>
       <label for="description">Beskrivelse</label>
-      <textarea id="description" name="description" rows="3"></textarea>
+      <textarea id="description" name="description" rows="3">{{ (form_data.description if form_data else '') or '' }}</textarea>
     </div>
     <div>
       <label for="exercises">Øvelser (én per linje)</label>
-      <textarea id="exercises" name="exercises" rows="8" placeholder="Squat|5|5\nDB Curl Left|3|10-12|db_curl|left\nDB Curl Right|3|10-12|db_curl|right"></textarea>
+      <textarea id="exercises" name="exercises" rows="8" placeholder="Squat|5|5\nDB Curl Left|3|10-12|db_curl|left\nDB Curl Right|3|10-12|db_curl|right">{{ (form_data.exercises if form_data else '') or '' }}</textarea>
       <p class="muted">Format: <code>Exercise|target_sets|target_reps|group_key|side</code> (siste felter valgfri). <code>side</code>: <code>left</code>, <code>right</code>, <code>both</code>.</p>
     </div>
-    <button type="submit">Lagre bygger</button>
+    <button type="submit">{% if is_edit %}Lagre endringer{% else %}Lagre bygger{% endif %}</button>
   </form>
 </div>
 {% endblock %}

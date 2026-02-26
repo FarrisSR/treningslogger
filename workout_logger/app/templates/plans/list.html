@@ -8,13 +8,14 @@
   </div>
   {% if plans %}
     <table>
-      <thead><tr><th>Navn</th><th>Øvelser</th><th></th></tr></thead>
+      <thead><tr><th>Navn</th><th>Øvelser</th><th></th><th></th></tr></thead>
       <tbody>
         {% for plan in plans %}
         <tr>
           <td>{{ plan.name }}</td>
           <td>{{ plan.exercises|length }}</td>
           <td><a href="{{ url_for('plans.view_plan', plan_id=plan.id) }}">Åpne</a></td>
+          <td><a href="{{ url_for('plans.edit_plan', plan_id=plan.id) }}">Rediger</a></td>
         </tr>
         {% endfor %}
       </tbody>

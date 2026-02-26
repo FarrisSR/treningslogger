@@ -44,6 +44,7 @@
     const planViewRoot = document.getElementById('workout-plan-view-root');
     if (planViewRoot) {
       const tabs = Array.from(planViewRoot.querySelectorAll('[data-plan-group-tab]'));
+      const cards = Array.from(planViewRoot.querySelectorAll('[data-plan-group]'));
       const bodies = Array.from(planViewRoot.querySelectorAll('[data-plan-group-body]'));
       const toggles = Array.from(planViewRoot.querySelectorAll('[data-plan-group-toggle]'));
       let activeGroupId = (tabs[0] && tabs[0].dataset.planGroupTab) || (toggles[0] && toggles[0].dataset.planGroupToggle) || null;
@@ -53,6 +54,14 @@
         tabs.forEach((btn) => {
           const isActive = btn.dataset.planGroupTab === activeGroupId;
           btn.dataset.active = isActive ? '1' : '0';
+        });
+        cards.forEach((card) => {
+          const isActive = card.dataset.planGroup === activeGroupId;
+          if (mode === 'tabs') {
+            card.dataset.active = isActive ? '1' : '0';
+          } else {
+            card.dataset.active = '1';
+          }
         });
         bodies.forEach((body) => {
           const groupId = body.dataset.planGroupBody;
