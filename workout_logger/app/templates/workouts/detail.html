@@ -34,6 +34,59 @@
 </style>
 {% endblock %}
 {% block content %}
+{% macro render_set_edit_controls(s) -%}
+  <details class="set-edit-details" style="margin-top:0.35rem;">
+    <summary>Rediger sett</summary>
+    <form method="post" action="{{ url_for('workouts.update_set', workout_id=workout.id, set_id=s.id) }}" class="set-edit-form">
+      <div class="inline">
+        <div>
+          <label>Set</label>
+          <input name="set_no" type="number" min="1" value="{{ s.set_no }}" required>
+        </div>
+        <div>
+          <label>Reps</label>
+          <input name="reps" type="number" min="0" step="1" value="{{ s.reps if s.reps is not none else '' }}">
+        </div>
+        <div>
+          <label>Sec</label>
+          <input name="duration_seconds" type="number" min="1" step="1" value="{{ s.duration_seconds if s.duration_seconds is not none else '' }}">
+        </div>
+      </div>
+      <div class="inline">
+        <div>
+          <label>kg</label>
+          <input name="weight_kg" type="number" min="0" step="0.5" value="{{ s.weight_kg }}">
+        </div>
+        <div>
+          <label>RPE</label>
+          <input name="rpe" type="number" min="0" max="10" step="0.5" value="{{ s.rpe if s.rpe is not none else '' }}">
+        </div>
+      </div>
+      <div class="inline">
+        <button type="submit">Lagre</button>
+      </div>
+    </form>
+    <form method="post" action="{{ url_for('workouts.delete_set', workout_id=workout.id, set_id=s.id) }}" style="margin-top:0.4rem;">
+      <button type="submit" class="secondary">Slett</button>
+    </form>
+  </details>
+{%- endmacro %}
+{% set plan_ns = namespace(exercise_ids=[]) %}
+{% if plan_mode_groups %}
+  {% for group in plan_mode_groups %}
+    {% for section in group.members %}
+      {% if section.exercise.id not in plan_ns.exercise_ids %}
+        {% set _ = plan_ns.exercise_ids.append(section.exercise.id) %}
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+{% endif %}
+{% set logged_sets_ns = namespace(visible_count=0) %}
+{% for exercise in exercises %}
+  {% if grouped_sets.get(exercise.id) and (not plan_mode_sections or exercise.id not in plan_ns.exercise_ids) %}
+    {% set logged_sets_ns.visible_count = logged_sets_ns.visible_count + 1 %}
+  {% endif %}
+{% endfor %}
 <div class="grid grid-2">
   <section class="card">
     <div style="display:flex; justify-content:space-between; align-items:start; gap:0.75rem; flex-wrap:wrap;">
@@ -123,6 +176,7 @@
                         {% endif %}
                         @ {{ '%.2f'|format(s.weight_kg) }}kg{% if s.rpe is not none %}, RPE {{ s.rpe }}{% endif %}
                       </div>
+                      {{ render_set_edit_controls(s) }}
                     {% endfor %}
                   {% else %}
                     <div class="muted">Pending</div>
@@ -180,6 +234,7 @@
                         {% endif %}
                         @ {{ '%.2f'|format(s.weight_kg) }}kg{% if s.rpe is not none %}, RPE {{ s.rpe }}{% endif %}
                       </div>
+                      {{ render_set_edit_controls(s) }}
                     {% endfor %}
                   {% else %}
                     <div>Pending</div>
@@ -237,10 +292,11 @@
   </section>
   {% endif %}
 
+  {% if (not plan_mode_sections and grouped_sets) or (plan_mode_sections and logged_sets_ns.visible_count > 0) %}
   <section class="card">
-    <h2>Logged Sets</h2>
+    <h2>{% if plan_mode_sections %}Ekstra loggede sett{% else %}Logged Sets{% endif %}</h2>
     {% if grouped_sets %}
-      {% for exercise in exercises if grouped_sets.get(exercise.id) %}
+      {% for exercise in exercises if grouped_sets.get(exercise.id) and (not plan_mode_sections or exercise.id not in plan_ns.exercise_ids) %}
         <h3>{{ exercise.name }}</h3>
         <table>
           <thead><tr><th>Set</th><th>Reps</th><th>Duration</th><th>Weight</th><th>RPE</th><th></th></tr></thead>
@@ -253,41 +309,7 @@
               <td>{{ '%.2f'|format(s.weight_kg) }}</td>
               <td>{{ s.rpe if s.rpe is not none else '' }}</td>
               <td>
-                <details class="set-edit-details">
-                  <summary>Edit</summary>
-                  <form method="post" action="{{ url_for('workouts.update_set', workout_id=workout.id, set_id=s.id) }}" class="set-edit-form">
-                    <div class="inline">
-                      <div>
-                        <label>Set</label>
-                        <input name="set_no" type="number" min="1" value="{{ s.set_no }}" required>
-                      </div>
-                      <div>
-                        <label>Reps</label>
-                        <input name="reps" type="number" min="0" step="1" value="{{ s.reps if s.reps is not none else '' }}">
-                      </div>
-                      <div>
-                        <label>Sec</label>
-                        <input name="duration_seconds" type="number" min="1" step="1" value="{{ s.duration_seconds if s.duration_seconds is not none else '' }}">
-                      </div>
-                    </div>
-                    <div class="inline">
-                      <div>
-                        <label>kg</label>
-                        <input name="weight_kg" type="number" min="0" step="0.5" value="{{ s.weight_kg }}">
-                      </div>
-                      <div>
-                        <label>RPE</label>
-                        <input name="rpe" type="number" min="0" max="10" step="0.5" value="{{ s.rpe if s.rpe is not none else '' }}">
-                      </div>
-                    </div>
-                    <div class="inline">
-                      <button type="submit">Save</button>
-                    </div>
-                  </form>
-                  <form method="post" action="{{ url_for('workouts.delete_set', workout_id=workout.id, set_id=s.id) }}" style="margin-top:0.4rem;">
-                    <button type="submit" class="secondary">Delete</button>
-                  </form>
-                </details>
+                {{ render_set_edit_controls(s) }}
               </td>
             </tr>
             {% endfor %}
@@ -298,6 +320,7 @@
       <p class="muted">No sets logged yet.</p>
     {% endif %}
   </section>
+  {% endif %}
 
   <section class="card" id="exercise-hint-panel"
            data-workout-id="{{ workout.id }}"
