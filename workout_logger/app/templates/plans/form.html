@@ -1,23 +1,23 @@
 {% extends 'base.html' %}
-{% block title %}New Plan | Workout Logger{% endblock %}
+{% block title %}Ny Treningsøkt bygger | Workout Logger{% endblock %}
 {% block content %}
 <div class="card" style="max-width:800px;">
-  <h1>Create Plan</h1>
+  <h1>Ny Treningsøkt bygger</h1>
   <form method="post" class="grid">
     <div>
-      <label for="name">Plan Name</label>
+      <label for="name">Navn</label>
       <input id="name" name="name" required>
     </div>
     <div>
-      <label for="description">Description</label>
+      <label for="description">Beskrivelse</label>
       <textarea id="description" name="description" rows="3"></textarea>
     </div>
     <div>
-      <label for="exercises">Exercises (one per line)</label>
-      <textarea id="exercises" name="exercises" rows="8" placeholder="Squat|5|5\nBench Press|5|5\nRow|4|8-10"></textarea>
-      <p class="muted">Format: <code>Exercise</code> or <code>Exercise|target_sets|target_reps</code>.</p>
+      <label for="exercises">Øvelser (én per linje)</label>
+      <textarea id="exercises" name="exercises" rows="8" placeholder="Squat|5|5\nDB Curl Left|3|10-12|db_curl|left\nDB Curl Right|3|10-12|db_curl|right"></textarea>
+      <p class="muted">Format: <code>Exercise|target_sets|target_reps|group_key|side</code> (siste felter valgfri). <code>side</code>: <code>left</code>, <code>right</code>, <code>both</code>.</p>
     </div>
-    <button type="submit">Save Plan</button>
+    <button type="submit">Lagre bygger</button>
   </form>
 </div>
 {% endblock %}

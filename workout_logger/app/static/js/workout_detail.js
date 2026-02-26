@@ -41,6 +41,54 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    const planViewRoot = document.getElementById('workout-plan-view-root');
+    if (planViewRoot) {
+      const tabs = Array.from(planViewRoot.querySelectorAll('[data-plan-group-tab]'));
+      const bodies = Array.from(planViewRoot.querySelectorAll('[data-plan-group-body]'));
+      const toggles = Array.from(planViewRoot.querySelectorAll('[data-plan-group-toggle]'));
+      let activeGroupId = (tabs[0] && tabs[0].dataset.planGroupTab) || (toggles[0] && toggles[0].dataset.planGroupToggle) || null;
+
+      function renderPlanMode() {
+        const mode = planViewRoot.dataset.viewMode || 'accordion';
+        tabs.forEach((btn) => {
+          const isActive = btn.dataset.planGroupTab === activeGroupId;
+          btn.dataset.active = isActive ? '1' : '0';
+        });
+        bodies.forEach((body) => {
+          const groupId = body.dataset.planGroupBody;
+          const isActive = groupId === activeGroupId;
+          if (mode === 'list') {
+            body.dataset.active = '1';
+          } else if (mode === 'accordion' || mode === 'tabs') {
+            body.dataset.active = isActive ? '1' : '0';
+          }
+        });
+      }
+
+      tabs.forEach((btn) => {
+        btn.addEventListener('click', function () {
+          activeGroupId = btn.dataset.planGroupTab;
+          planViewRoot.dataset.viewMode = 'tabs';
+          renderPlanMode();
+        });
+      });
+
+      toggles.forEach((btn) => {
+        btn.addEventListener('click', function () {
+          const mode = planViewRoot.dataset.viewMode || 'accordion';
+          const id = btn.dataset.planGroupToggle;
+          if (mode === 'accordion') {
+            activeGroupId = activeGroupId === id ? id : id;
+          } else if (mode === 'tabs') {
+            activeGroupId = id;
+          }
+          renderPlanMode();
+        });
+      });
+
+      renderPlanMode();
+    }
+
     const panel = document.getElementById('exercise-hint-panel');
     const select = document.getElementById('exercise_id');
     const addSetForm = document.getElementById('add-set-form');

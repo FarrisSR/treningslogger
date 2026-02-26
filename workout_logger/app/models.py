@@ -17,6 +17,19 @@ class User(db.Model):
     exercises = db.relationship("Exercise", back_populates="user", cascade="all, delete-orphan")
     workout_plans = db.relationship("WorkoutPlan", back_populates="user", cascade="all, delete-orphan")
     workouts = db.relationship("Workout", back_populates="user", cascade="all, delete-orphan")
+    profile = db.relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
+
+
+class UserProfile(db.Model):
+    __table_args__ = (UniqueConstraint("user_id", name="uq_user_profile_user_id"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True)
+    workout_view_mode = db.Column(db.String(20), nullable=False, default="accordion")
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship("User", back_populates="profile")
 
 
 class Exercise(db.Model):
@@ -63,6 +76,8 @@ class PlanExercise(db.Model):
     position = db.Column(db.Integer, nullable=False, default=0)
     target_sets = db.Column(db.Integer, nullable=True)
     target_reps = db.Column(db.String(40), nullable=True)
+    group_key = db.Column(db.String(80), nullable=True)
+    side = db.Column(db.String(16), nullable=True)
 
     plan = db.relationship("WorkoutPlan", back_populates="exercises")
     exercise = db.relationship("Exercise", back_populates="plan_exercises")

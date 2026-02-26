@@ -23,7 +23,7 @@ from openpyxl import Workbook
 from sqlalchemy.orm import joinedload
 
 from .. import db
-from ..models import Exercise, PlanExercise, SetEntry, Workout, WorkoutExerciseNote, WorkoutPlan
+from ..models import Exercise, PlanExercise, SetEntry, UserProfile, Workout, WorkoutExerciseNote, WorkoutPlan
 from ..services.history import get_previous_workout
 from . import login_required, require_user
 
@@ -99,6 +99,18 @@ def _parse_plan_target(target_reps: str | None) -> dict[str, int | str | None]:
         "suggested_reps": value if value is not None and value >= 0 else None,
         "suggested_duration_seconds": None,
     }
+
+
+def _normalize_plan_side(side: object) -> str | None:
+    if side is None:
+        return None
+    value = str(side).strip().lower()
+    return value if value in {"left", "right", "both"} else None
+
+
+def _labelize_group_key(group_key: str) -> str:
+    text = " ".join(str(group_key).replace("_", " ").replace("-", " ").split())
+    return text.title() if text else "Group"
 
 
 @bp.get("/")
@@ -221,6 +233,8 @@ def view_workout(workout_id: int):
                     "exercise": pe.exercise,
                     "target_sets": pe.target_sets,
                     "target_reps": pe.target_reps,
+                    "group_key": pe.group_key,
+                    "side": pe.side,
                     "logged_sets": logged_sets,
                     "next_set_no": next_set_no_by_exercise.get(pe.exercise_id, 1),
                     "suggested_reps": suggested_reps,
@@ -239,11 +253,13 @@ def view_workout(workout_id: int):
                         previous_set = previous_last_set_by_exercise.get(pe.exercise_id)
                     planned_rows.append(
                         {
+                            "plan_exercise_id": pe.id,
                             "set_no": planned_set_no,
                             "suggested_reps": suggested_reps,
                             "suggested_duration_seconds": suggested_duration_seconds,
                             "suggested_weight_kg": previous_set.weight_kg if previous_set is not None else None,
                             "target_mode": target_mode,
+                            "side": pe.side,
                             "previous_set": previous_set,
                             "logged": matching_logged,
                         }
@@ -251,9 +267,12 @@ def view_workout(workout_id: int):
 
                 plan_mode_sections.append(
                     {
+                        "plan_exercise_id": pe.id,
                         "exercise": pe.exercise,
                         "target_sets": pe.target_sets,
                         "target_reps": pe.target_reps,
+                        "group_key": pe.group_key,
+                        "side": pe.side,
                         "rows": planned_rows,
                     }
                 )
@@ -272,6 +291,35 @@ def view_workout(workout_id: int):
     plan_exercise_id_set = set(plan_exercise_ids)
     other_exercises = [exercise for exercise in exercises if exercise.id not in plan_exercise_id_set]
     selected_set_no = next_set_no_by_exercise.get(selected_exercise_id, 1) if selected_exercise_id else 1
+    workout_view_mode = getattr(getattr(user, "profile", None), "workout_view_mode", None) or "accordion"
+    if workout_view_mode not in {"accordion", "tabs", "list"}:
+        workout_view_mode = "accordion"
+    plan_mode_groups = []
+    group_map: dict[str, dict] = {}
+    for section in plan_mode_sections:
+        group_key = (section.get("group_key") or "").strip() if section.get("group_key") else None
+        if group_key:
+            map_key = group_key.lower()
+            group = group_map.get(map_key)
+            if group is None:
+                group = {
+                    "id": f"plan-group-{len(plan_mode_groups) + 1}",
+                    "title": _labelize_group_key(group_key),
+                    "group_key": group_key,
+                    "members": [],
+                }
+                group_map[map_key] = group
+                plan_mode_groups.append(group)
+            group["members"].append(section)
+        else:
+            plan_mode_groups.append(
+                {
+                    "id": f"plan-group-{len(plan_mode_groups) + 1}",
+                    "title": section["exercise"].name,
+                    "group_key": None,
+                    "members": [section],
+                }
+            )
 
     return render_template(
         "workouts/detail.html",
@@ -282,7 +330,9 @@ def view_workout(workout_id: int):
         plan_exercise_ids=plan_exercise_ids,
         plan_exercise_items=plan_exercise_items,
         plan_mode_sections=plan_mode_sections,
+        plan_mode_groups=plan_mode_groups,
         previous_workout=previous_workout,
+        workout_view_mode=workout_view_mode,
         selected_exercise_id=selected_exercise_id,
         next_set_no_by_exercise=next_set_no_by_exercise,
         selected_set_no=selected_set_no,
@@ -379,6 +429,26 @@ def update_workout(workout_id: int):
     db.session.commit()
     flash("Workout details saved.", "success")
     return redirect(url_for("workouts.view_workout", workout_id=workout.id))
+
+
+@bp.post("/preferences/workout-view-mode")
+@login_required
+def set_workout_view_mode_preference():
+    user = require_user()
+    mode = (request.form.get("workout_view_mode") or "").strip().lower()
+    next_url = request.form.get("next") or url_for("workouts.index")
+    if mode not in {"accordion", "tabs", "list"}:
+        flash("Invalid view mode.", "error")
+        return redirect(next_url)
+    profile = user.profile
+    if profile is None:
+        profile = UserProfile(user_id=user.id, workout_view_mode=mode)
+        db.session.add(profile)
+    else:
+        profile.workout_view_mode = mode
+    db.session.commit()
+    flash("Visningsmodus lagret.", "success")
+    return redirect(next_url)
 
 
 @bp.post("/workouts/<int:workout_id>/sets/<int:set_id>/delete")
@@ -556,6 +626,8 @@ def _export_workouts_payload(user_id: int) -> dict:
                         "position": pe.position,
                         "target_sets": pe.target_sets,
                         "target_reps": pe.target_reps,
+                        "group_key": pe.group_key,
+                        "side": pe.side,
                     }
                     for pe in plan.exercises
                     if pe.exercise is not None
@@ -708,6 +780,8 @@ def _import_workouts_json_payload(
                         position=_parse_optional_int(pe.get("position")) or idx,
                         target_sets=_parse_optional_int(pe.get("target_sets")),
                         target_reps=(str(pe.get("target_reps")).strip() if pe.get("target_reps") is not None else None),
+                        group_key=(str(pe.get("group_key")).strip() if pe.get("group_key") is not None else None),
+                        side=_normalize_plan_side(pe.get("side")),
                     )
                 )
         elif plan_strategy == "merge" and plan.id is not None:
@@ -722,6 +796,8 @@ def _import_workouts_json_payload(
                     continue
                 target_sets = _parse_optional_int(pe.get("target_sets"))
                 target_reps = (str(pe.get("target_reps")).strip() if pe.get("target_reps") is not None else None)
+                group_key = (str(pe.get("group_key")).strip() if pe.get("group_key") is not None else None)
+                side = _normalize_plan_side(pe.get("side"))
                 pos = _parse_optional_int(pe.get("position")) or idx
                 existing_pe = existing_by_exercise_name.get(exercise.name.lower())
                 if existing_pe is None:
@@ -731,6 +807,8 @@ def _import_workouts_json_payload(
                             position=max(pos, next_position),
                             target_sets=target_sets,
                             target_reps=target_reps,
+                            group_key=group_key,
+                            side=side,
                         )
                     )
                     next_position += 1
@@ -738,6 +816,8 @@ def _import_workouts_json_payload(
                     existing_pe.position = pos
                     existing_pe.target_sets = target_sets
                     existing_pe.target_reps = target_reps
+                    existing_pe.group_key = group_key
+                    existing_pe.side = side
         else:
             # New plan: populate with imported exercises.
             for idx, pe in enumerate(incoming_exercises, start=1):
@@ -750,6 +830,8 @@ def _import_workouts_json_payload(
                         position=_parse_optional_int(pe.get("position")) or idx,
                         target_sets=_parse_optional_int(pe.get("target_sets")),
                         target_reps=(str(pe.get("target_reps")).strip() if pe.get("target_reps") is not None else None),
+                        group_key=(str(pe.get("group_key")).strip() if pe.get("group_key") is not None else None),
+                        side=_normalize_plan_side(pe.get("side")),
                     )
                 )
         plan_cache_by_name[plan_name.lower()] = plan

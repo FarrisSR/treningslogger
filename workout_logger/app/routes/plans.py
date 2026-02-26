@@ -73,6 +73,10 @@ def create_plan():
                 continue
             target_sets = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
             target_reps = parts[2] if len(parts) > 2 and parts[2] else None
+            group_key = parts[3] if len(parts) > 3 and parts[3] else None
+            side = (parts[4].lower() if len(parts) > 4 and parts[4] else None)
+            if side not in {None, "left", "right", "both"}:
+                side = None
             db.session.add(
                 PlanExercise(
                     plan_id=plan.id,
@@ -80,6 +84,8 @@ def create_plan():
                     position=position,
                     target_sets=target_sets,
                     target_reps=target_reps,
+                    group_key=group_key,
+                    side=side,
                 )
             )
 

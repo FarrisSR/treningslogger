@@ -10,6 +10,21 @@
   .set-edit-details summary { cursor: pointer; color: #0b7a75; font-weight: 600; }
   .set-edit-form { margin-top: 0.5rem; display: grid; gap: 0.5rem; min-width: 230px; }
   .set-edit-form .inline > * { min-width: 70px; }
+  .workout-plan-view-root[data-view-mode="tabs"] .plan-group-accordion-header { display: none; }
+  .workout-plan-view-root[data-view-mode="tabs"] .plan-group-body { display: none; }
+  .workout-plan-view-root[data-view-mode="tabs"] .plan-group-body[data-active="1"] { display: block; }
+  .workout-plan-view-root[data-view-mode="tabs"] .plan-view-tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+  .workout-plan-view-root[data-view-mode="tabs"] .plan-view-tab-btn { width: auto; padding: 0.45rem 0.65rem; background: #e5e7eb; color: #111827; border: 1px solid #d1d5db; }
+  .workout-plan-view-root[data-view-mode="tabs"] .plan-view-tab-btn[data-active="1"] { background: #0b7a75; color: #fff; border-color: #0b7a75; }
+  .workout-plan-view-root[data-view-mode="accordion"] .plan-view-tabs { display: none; }
+  .workout-plan-view-root[data-view-mode="accordion"] .plan-group-body { display: none; }
+  .workout-plan-view-root[data-view-mode="accordion"] .plan-group-body[data-active="1"] { display: block; }
+  .workout-plan-view-root[data-view-mode="list"] .plan-view-tabs { display: none; }
+  .workout-plan-view-root[data-view-mode="list"] .plan-group-body { display: block; }
+  .plan-group-card { border:1px solid #d6dbe0; border-radius:8px; padding:0.75rem; }
+  .plan-group-accordion-header { width: 100%; text-align: left; margin-bottom: 0.5rem; }
+  .plan-member-header { display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.5rem; }
+  .side-badge { display:inline-block; border-radius:999px; background:#f1f5f9; color:#0f172a; padding:0.1rem 0.45rem; font-size:0.75rem; margin-left:0.35rem; }
   @media (max-width: 700px) {
     .plan-mode-desktop { display: none; }
     .plan-mode-mobile { display: block; }
@@ -137,16 +152,46 @@
 <div class="grid grid-2" style="margin-top:1rem;">
   {% if plan_mode_sections %}
   <section class="card" style="grid-column: 1 / -1;">
-    <h2>Plan Mode</h2>
-    <p class="muted">
-      Planlagte sett vises under. Reps foreslås fra planen når mulig. For tidsbaserte targets som <code>45s</code> kommer varighet ferdig utfylt og låst.
-      {% if previous_workout %}Vekt er forhåndsutfylt fra forrige matching økt ({{ previous_workout.workout_date }} · {{ previous_workout.title }}).{% endif %}
-    </p>
-    <div class="grid">
-      {% for section in plan_mode_sections %}
-        <div style="border:1px solid #d6dbe0; border-radius:8px; padding:0.75rem;">
-          <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.5rem;">
-            <strong>{{ section.exercise.name }}</strong>
+    <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:end;">
+      <div>
+        <h2 style="margin:0;">Treningsøkt</h2>
+        <p class="muted" style="margin:0.35rem 0 0;">
+          Planlagte sett vises under. Reps foreslås fra planen når mulig. For tidsbaserte targets som <code>45s</code> kommer varighet ferdig utfylt og låst.
+          {% if previous_workout %}Vekt er forhåndsutfylt fra forrige matching økt ({{ previous_workout.workout_date }} · {{ previous_workout.title }}).{% endif %}
+        </p>
+      </div>
+      <form method="post" action="{{ url_for('workouts.set_workout_view_mode_preference') }}" class="inline" style="width:auto;">
+        <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+        <div style="min-width:190px;">
+          <label for="workout_view_mode" style="color:#66727f;">Visning</label>
+          <select id="workout_view_mode" name="workout_view_mode" onchange="this.form.submit()">
+            <option value="accordion" {% if workout_view_mode == 'accordion' %}selected{% endif %}>Accordion</option>
+            <option value="tabs" {% if workout_view_mode == 'tabs' %}selected{% endif %}>Fliker</option>
+            <option value="list" {% if workout_view_mode == 'list' %}selected{% endif %}>Liste</option>
+          </select>
+        </div>
+      </form>
+    </div>
+    <div class="workout-plan-view-root" id="workout-plan-view-root" data-view-mode="{{ workout_view_mode }}">
+      <div class="plan-view-tabs">
+        {% for group in plan_mode_groups %}
+          <button type="button" class="plan-view-tab-btn" data-plan-group-tab="{{ group.id }}">{{ group.title }}</button>
+        {% endfor %}
+      </div>
+      <div class="grid">
+      {% for group in plan_mode_groups %}
+        <div class="plan-group-card" data-plan-group="{{ group.id }}">
+          <button type="button" class="plan-group-accordion-header" data-plan-group-toggle="{{ group.id }}">{{ group.title }}</button>
+          <div class="plan-group-body" data-plan-group-body="{{ group.id }}">
+          {% for section in group.members %}
+          <div {% if not loop.first %}style="margin-top:0.75rem; border-top:1px dashed #d6dbe0; padding-top:0.75rem;"{% endif %}>
+          <div class="plan-member-header">
+            <div>
+              <strong>{{ section.exercise.name }}</strong>
+              {% if section.side %}
+                <span class="side-badge">{{ section.side }}</span>
+              {% endif %}
+            </div>
             <span class="muted">
               {% if section.target_sets or section.target_reps %}
                 Target: {{ section.target_sets or '' }}{% if section.target_sets and section.target_reps %} x {% endif %}{{ section.target_reps or '' }}
@@ -278,8 +323,12 @@
               </div>
             {% endfor %}
           </div>
+          </div>
+          {% endfor %}
+          </div>
         </div>
       {% endfor %}
+      </div>
     </div>
   </section>
   {% endif %}
