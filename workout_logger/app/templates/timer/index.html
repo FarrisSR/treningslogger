@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}HIIT / Tabata | Workout Logger{% endblock %}
+{% block head %}
+<script defer src="{{ url_for('static', filename='js/hiit_timer.js') }}"></script>
+<style>
+  .timer-shell { display:grid; gap:1rem; grid-template-columns:minmax(280px, 360px) 1fr; align-items:start; }
+  .timer-display { text-align:center; padding:1.25rem; background:linear-gradient(180deg, #0f172a, #172026); color:#f8fafc; border-radius:14px; }
+  .timer-phase { font-size:0.95rem; letter-spacing:0.08em; text-transform:uppercase; color:#93c5fd; }
+  .timer-clock { font-size:clamp(3.2rem, 9vw, 6rem); line-height:1; font-weight:800; margin:0.75rem 0; }
+  .timer-sub { color:#cbd5e1; }
+  .timer-display[data-phase='work'] .timer-phase { color:#86efac; }
+  .timer-display[data-phase='rest'] .timer-phase { color:#fca5a5; }
+  .timer-display[data-phase='ready'] .timer-phase { color:#fde68a; }
+  .timer-display[data-phase='done'] .timer-phase { color:#c4b5fd; }
+  .timer-progress { height:12px; border-radius:999px; background:#1f2937; overflow:hidden; margin-top:1rem; }
+  .timer-progress-bar { height:100%; width:0%; background:linear-gradient(90deg, #0ea5e9, #22c55e); transition:width 0.15s linear; }
+  .timer-actions { display:flex; gap:0.75rem; flex-wrap:wrap; }
+  .timer-actions button { min-width:130px; }
+  .timer-presets { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:0.75rem; }
+  .timer-presets button { background:#e6fffb; color:#115e59; border:1px solid #99f6e4; }
+  .timer-summary { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:0.75rem; }
+  .timer-stat { border:1px solid var(--line); border-radius:10px; padding:0.75rem; background:#f8fafc; }
+  .timer-stat strong { display:block; font-size:1.4rem; }
+  .timer-note { font-size:0.92rem; color:var(--muted); }
+  @media (max-width: 860px) {
+    .timer-shell { grid-template-columns:1fr; }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<div class="grid" data-hiit-root>
+  <section class="card">
+    <h1 style="margin-top:0;">HIIT / Tabata</h1>
+    <p class="muted">Still inn arbeid, hvile, sykler og sett. Timeren piper de siste 5 sekundene i hver fase, med et tydelig høyere siste pip.</p>
+  </section>
+
+  <div class="timer-shell">
+    <section class="card">
+      <form id="hiit-timer-form" class="grid">
+        <div class="inline">
+          <div>
+            <label for="work_seconds">Trening (sek)</label>
+            <input id="work_seconds" name="work_seconds" type="number" min="1" step="1" value="20" required>
+          </div>
+          <div>
+            <label for="rest_seconds">Hvile (sek)</label>
+            <input id="rest_seconds" name="rest_seconds" type="number" min="0" step="1" value="10" required>
+          </div>
+        </div>
+        <div class="inline">
+          <div>
+            <label for="cycles">Sykler</label>
+            <input id="cycles" name="cycles" type="number" min="1" step="1" value="8" required>
+          </div>
+          <div>
+            <label for="sets">Sett</label>
+            <input id="sets" name="sets" type="number" min="1" step="1" value="1" required>
+          </div>
+        </div>
+        <div class="timer-actions">
+          <button type="button" id="start-timer">Start</button>
+          <button type="button" id="pause-timer" class="secondary">Pause</button>
+          <button type="button" id="reset-timer" class="secondary">Nullstill</button>
+        </div>
+      </form>
+      <div style="margin-top:1rem;">
+        <h2 style="margin-bottom:0.5rem;">Hurtigvalg</h2>
+        <div class="timer-presets">
+          <button type="button" data-preset-work="20" data-preset-rest="10" data-preset-cycles="8" data-preset-sets="1">Tabata 20/10</button>
+          <button type="button" data-preset-work="30" data-preset-rest="15" data-preset-cycles="10" data-preset-sets="1">30/15 x 10</button>
+          <button type="button" data-preset-work="45" data-preset-rest="15" data-preset-cycles="5" data-preset-sets="3">45/15 x 5, 3 sett</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="timer-display card" id="timer-display" data-phase="ready">
+        <div class="timer-phase" id="timer-phase-label">Klar</div>
+        <div class="timer-clock" id="timer-clock">00:20</div>
+        <div class="timer-sub" id="timer-sub-label">Trykk start for å begynne</div>
+        <div class="timer-progress"><div class="timer-progress-bar" id="timer-progress-bar"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="timer-summary">
+          <div class="timer-stat"><span class="muted">Gjeldende sykel</span><strong id="summary-cycle">1 / 8</strong></div>
+          <div class="timer-stat"><span class="muted">Gjeldende sett</span><strong id="summary-set">1 / 1</strong></div>
+          <div class="timer-stat"><span class="muted">Neste fase</span><strong id="summary-next">Hvile</strong></div>
+          <div class="timer-stat"><span class="muted">Total tid</span><strong id="summary-total">04:00</strong></div>
+        </div>
+        <p class="timer-note" style="margin-top:0.85rem;">Samme hviletid brukes mellom sykler og mellom sett. Etter siste arbeidsrunde avsluttes timeren uten ekstra hvile.</p>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

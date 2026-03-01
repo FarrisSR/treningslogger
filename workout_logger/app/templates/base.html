@@ -71,6 +71,7 @@
       {% if g.current_user %}
         <a class="nav-link-tooltip" data-tooltip="Opprett en ny treningsøkt manuelt." href="{{ url_for('workouts.create_workout') }}">Ny økt</a>
         <a class="nav-link-tooltip" data-tooltip="Lag og start treningsøkter basert på planer." href="{{ url_for('plans.list_plans') }}">Treningsøkt bygger</a>
+        <a class="nav-link-tooltip" data-tooltip="Intervalltimer for HIIT og Tabata med nedtelling og pip." href="{{ url_for('timer.hiit_timer') }}">HIIT / Tabata</a>
         <a class="nav-link-tooltip" data-tooltip="Grafer for volum, estimert 1RM og tidsbasert arbeid." href="{{ url_for('stats.stats_index') }}">Stats</a>
         <a class="nav-link-tooltip" data-tooltip="Full eksport av planer og økter som JSON for backup/redigering." href="{{ url_for('workouts.export_workouts_json') }}">JSON</a>
         <a class="nav-link-tooltip" data-tooltip="Last ned alle registrerte sett som CSV-fil." href="{{ url_for('workouts.export_sets_csv') }}">CSV</a>

@@ -158,12 +158,14 @@ def create_app(config_object: type[Config] = Config) -> Flask:
     from .routes.auth import bp as auth_bp
     from .routes.plans import bp as plans_bp
     from .routes.stats import bp as stats_bp
+    from .routes.timer import bp as timer_bp
     from .routes.workouts import bp as workouts_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(workouts_bp)
     app.register_blueprint(plans_bp)
     app.register_blueprint(stats_bp)
+    app.register_blueprint(timer_bp)
     app.register_blueprint(api_bp)
 
     return app
