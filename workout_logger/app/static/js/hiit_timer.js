@@ -31,6 +31,9 @@
     const restInput = byId('rest_seconds');
     const cyclesInput = byId('cycles');
     const setsInput = byId('sets');
+    const setRestInput = byId('set_rest_seconds');
+    const startDelayInput = byId('start_delay_seconds');
+    const keepScreenAwakeInput = byId('keep-screen-awake');
     const startBtn = byId('start-timer');
     const pauseBtn = byId('pause-timer');
     const resetBtn = byId('reset-timer');
@@ -66,6 +69,9 @@
         restInput.value = clampInt(saved.rest_seconds, 10, 0);
         cyclesInput.value = clampInt(saved.cycles, 8, 1);
         setsInput.value = clampInt(saved.sets, 1, 1);
+        setRestInput.value = clampInt(saved.set_rest_seconds, 60, 0);
+        startDelayInput.value = clampInt(saved.start_delay_seconds, 5, 0);
+        keepScreenAwakeInput.checked = saved.keep_screen_awake !== false;
       } catch (_err) {}
     }
 
@@ -79,14 +85,18 @@
         work_seconds: clampInt(workInput.value, 20, 1),
         rest_seconds: clampInt(restInput.value, 10, 0),
         cycles: clampInt(cyclesInput.value, 8, 1),
-        sets: clampInt(setsInput.value, 1, 1)
+        sets: clampInt(setsInput.value, 1, 1),
+        set_rest_seconds: clampInt(setRestInput.value, 60, 0),
+        start_delay_seconds: clampInt(startDelayInput.value, 5, 0),
+        keep_screen_awake: Boolean(keepScreenAwakeInput.checked)
       };
     }
 
     function totalDurationSeconds(cfg) {
       const workSegments = cfg.work_seconds * cfg.cycles * cfg.sets;
-      const restSegments = Math.max(0, (cfg.cycles * cfg.sets) - 1) * cfg.rest_seconds;
-      return workSegments + restSegments;
+      const cycleRestSegments = cfg.sets * Math.max(0, cfg.cycles - 1) * cfg.rest_seconds;
+      const setRestSegments = Math.max(0, cfg.sets - 1) * cfg.set_rest_seconds;
+      return cfg.start_delay_seconds + workSegments + cycleRestSegments + setRestSegments;
     }
 
     function logTimerEvent(eventName, extraData) {
@@ -97,7 +107,10 @@
         work: String(cfg.work_seconds),
         rest: String(cfg.rest_seconds),
         cycles: String(cfg.cycles),
-        sets: String(cfg.sets)
+        sets: String(cfg.sets),
+        set_rest: String(cfg.set_rest_seconds),
+        start_delay: String(cfg.start_delay_seconds),
+        keep_awake: cfg.keep_screen_awake ? '1' : '0'
       });
       const phase = currentPhase();
       if (phase) {
@@ -120,6 +133,15 @@
 
     function buildPhases(cfg) {
       const phases = [];
+      if (cfg.start_delay_seconds > 0) {
+        phases.push({
+          kind: 'countdown',
+          seconds: cfg.start_delay_seconds,
+          setNo: 1,
+          cycleNo: 1,
+          label: 'Start om'
+        });
+      }
       for (let setNo = 1; setNo <= cfg.sets; setNo += 1) {
         for (let cycleNo = 1; cycleNo <= cfg.cycles; cycleNo += 1) {
           phases.push({
@@ -129,8 +151,7 @@
             cycleNo,
             label: 'Trening'
           });
-          const isLast = setNo === cfg.sets && cycleNo === cfg.cycles;
-          if (!isLast && cfg.rest_seconds > 0) {
+          if (cycleNo < cfg.cycles && cfg.rest_seconds > 0) {
             phases.push({
               kind: 'rest',
               seconds: cfg.rest_seconds,
@@ -139,6 +160,15 @@
               label: 'Hvile'
             });
           }
+        }
+        if (setNo < cfg.sets && cfg.set_rest_seconds > 0) {
+          phases.push({
+            kind: 'set_rest',
+            seconds: cfg.set_rest_seconds,
+            setNo,
+            cycleNo: cfg.cycles,
+            label: 'Settpause'
+          });
         }
       }
       return phases;
@@ -171,6 +201,7 @@
     }
 
     async function requestWakeLock() {
+      if (!keepScreenAwakeInput.checked) return;
       if (!('wakeLock' in navigator) || wakeLock) return;
       try {
         wakeLock = await navigator.wakeLock.request('screen');
@@ -325,17 +356,27 @@
         restInput.value = btn.dataset.presetRest;
         cyclesInput.value = btn.dataset.presetCycles;
         setsInput.value = btn.dataset.presetSets;
+        setRestInput.value = btn.dataset.presetSetRest || '60';
+        startDelayInput.value = btn.dataset.presetStartDelay || '5';
         resetTimer();
         logTimerEvent('preset', { name: `${btn.dataset.presetWork}/${btn.dataset.presetRest}` });
       });
     });
 
-    [workInput, restInput, cyclesInput, setsInput].forEach(function (input) {
+    [workInput, restInput, cyclesInput, setsInput, setRestInput, startDelayInput].forEach(function (input) {
       input.addEventListener('change', function () {
         if (!running) {
           resetTimer();
         }
       });
+    });
+    keepScreenAwakeInput.addEventListener('change', function () {
+      saveSettings();
+      if (!keepScreenAwakeInput.checked) {
+        void releaseWakeLock();
+      } else if (running) {
+        void requestWakeLock();
+      }
     });
 
     startBtn.addEventListener('click', startTimer);

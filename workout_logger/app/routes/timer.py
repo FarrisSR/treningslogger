@@ -22,5 +22,8 @@ def hiit_timer_track():
     request.args.get('rest', '')
     request.args.get('cycles', '')
     request.args.get('sets', '')
+    request.args.get('set_rest', '')
+    request.args.get('start_delay', '')
+    request.args.get('keep_awake', '')
     request.args.get('phase', '')
     return Response(status=204)

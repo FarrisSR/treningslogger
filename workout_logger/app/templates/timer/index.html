@@ -31,7 +31,7 @@
 <div class="grid" data-hiit-root data-track-url="{{ url_for('timer.hiit_timer_track') }}">
   <section class="card">
     <h1 style="margin-top:0;">HIIT / Tabata</h1>
-    <p class="muted">Still inn arbeid, hvile, sykler og sett. Timeren piper de siste 5 sekundene i hver fase, med et tydelig høyere siste pip.</p>
+    <p class="muted">Still inn arbeid, hvile mellom sykler, hvile mellom sett, sykler og sett. Timeren piper de siste 5 sekundene i hver fase, med et tydelig høyere siste pip.</p>
   </section>
 
   <div class="timer-shell">
@@ -57,18 +57,35 @@
             <input id="sets" name="sets" type="number" min="1" step="1" value="1" required>
           </div>
         </div>
+        <div class="inline">
+          <div>
+            <label for="set_rest_seconds">Hvile mellom sett (sek)</label>
+            <input id="set_rest_seconds" name="set_rest_seconds" type="number" min="0" step="1" value="60" required>
+          </div>
+          <div>
+            <label for="start_delay_seconds">Nedtelling før start (sek)</label>
+            <input id="start_delay_seconds" name="start_delay_seconds" type="number" min="0" step="1" value="5" required>
+          </div>
+        </div>
         <div class="timer-actions">
           <button type="button" id="start-timer">Start</button>
           <button type="button" id="pause-timer" class="secondary">Pause</button>
           <button type="button" id="reset-timer" class="secondary">Nullstill</button>
         </div>
+        <div style="margin-top:0.5rem;">
+          <label style="display:flex; align-items:center; gap:0.5rem; font-weight:600;">
+            <input id="keep-screen-awake" name="keep_screen_awake" type="checkbox" style="width:auto;" checked>
+            Hold skjermen våken mens timeren går
+          </label>
+          <p class="muted" style="margin:0.35rem 0 0;">Slå av hvis du vil spare batteri.</p>
+        </div>
       </form>
       <div style="margin-top:1rem;">
         <h2 style="margin-bottom:0.5rem;">Hurtigvalg</h2>
         <div class="timer-presets">
-          <button type="button" data-preset-work="20" data-preset-rest="10" data-preset-cycles="8" data-preset-sets="1">Tabata 20/10</button>
-          <button type="button" data-preset-work="30" data-preset-rest="15" data-preset-cycles="10" data-preset-sets="1">30/15 x 10</button>
-          <button type="button" data-preset-work="45" data-preset-rest="15" data-preset-cycles="5" data-preset-sets="3">45/15 x 5, 3 sett</button>
+          <button type="button" data-preset-work="20" data-preset-rest="10" data-preset-cycles="8" data-preset-sets="1" data-preset-set-rest="60" data-preset-start-delay="5">Tabata 20/10</button>
+          <button type="button" data-preset-work="30" data-preset-rest="15" data-preset-cycles="10" data-preset-sets="1" data-preset-set-rest="90" data-preset-start-delay="5">30/15 x 10</button>
+          <button type="button" data-preset-work="45" data-preset-rest="15" data-preset-cycles="5" data-preset-sets="3" data-preset-set-rest="120" data-preset-start-delay="8">45/15 x 5, 3 sett</button>
         </div>
       </div>
     </section>
@@ -88,7 +105,7 @@
           <div class="timer-stat"><span class="muted">Neste fase</span><strong id="summary-next">Hvile</strong></div>
           <div class="timer-stat"><span class="muted">Total tid</span><strong id="summary-total">04:00</strong></div>
         </div>
-        <p class="timer-note" style="margin-top:0.85rem;">Samme hviletid brukes mellom sykler og mellom sett. Etter siste arbeidsrunde avsluttes timeren uten ekstra hvile.</p>
+        <p class="timer-note" style="margin-top:0.85rem;">Hvile mellom sykler og hvile mellom sett styres separat. Etter siste arbeidsrunde avsluttes timeren uten ekstra hvile.</p>
       </div>
     </section>
   </div>
