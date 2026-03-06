@@ -28,7 +28,7 @@
 </style>
 {% endblock %}
 {% block content %}
-<div class="grid" data-hiit-root>
+<div class="grid" data-hiit-root data-track-url="{{ url_for('timer.hiit_timer_track') }}">
   <section class="card">
     <h1 style="margin-top:0;">HIIT / Tabata</h1>
     <p class="muted">Still inn arbeid, hvile, sykler og sett. Timeren piper de siste 5 sekundene i hver fase, med et tydelig høyere siste pip.</p>

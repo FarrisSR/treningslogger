@@ -45,6 +45,7 @@
     const summaryTotal = byId('summary-total');
     const presetButtons = Array.from(document.querySelectorAll('[data-preset-work]'));
     const storageKey = 'workout_logger:hiit_timer_settings';
+    const trackUrl = root.dataset.trackUrl || '';
 
     let audioContext = null;
     let wakeLock = null;
@@ -86,6 +87,35 @@
       const workSegments = cfg.work_seconds * cfg.cycles * cfg.sets;
       const restSegments = Math.max(0, (cfg.cycles * cfg.sets) - 1) * cfg.rest_seconds;
       return workSegments + restSegments;
+    }
+
+    function logTimerEvent(eventName, extraData) {
+      if (!trackUrl) return;
+      const cfg = readConfig();
+      const params = new URLSearchParams({
+        event: eventName,
+        work: String(cfg.work_seconds),
+        rest: String(cfg.rest_seconds),
+        cycles: String(cfg.cycles),
+        sets: String(cfg.sets)
+      });
+      const phase = currentPhase();
+      if (phase) {
+        params.set('phase', phase.kind);
+      }
+      if (extraData && typeof extraData === 'object') {
+        Object.keys(extraData).forEach(function (key) {
+          if (extraData[key] != null) {
+            params.set(key, String(extraData[key]));
+          }
+        });
+      }
+      fetch(`${trackUrl}?${params.toString()}`, {
+        method: 'GET',
+        cache: 'no-store',
+        keepalive: true,
+        headers: { 'Accept': 'text/plain' }
+      }).catch(function () {});
     }
 
     function buildPhases(cfg) {
@@ -207,6 +237,7 @@
       summaryNext.textContent = '-';
       beep(true);
       void releaseWakeLock();
+      logTimerEvent('finish');
     }
 
     function advancePhase() {
@@ -257,6 +288,7 @@
       window.clearInterval(timerId);
       timerId = window.setInterval(tick, 100);
       render();
+      logTimerEvent('start');
     }
 
     function pauseTimer() {
@@ -266,6 +298,7 @@
       timerId = null;
       void releaseWakeLock();
       render();
+      logTimerEvent('pause');
     }
 
     function resetTimer() {
@@ -283,6 +316,7 @@
       const phase = currentPhase();
       remainingMs = phase ? phase.seconds * 1000 : 0;
       render();
+      logTimerEvent('reset');
     }
 
     presetButtons.forEach(function (btn) {
@@ -292,6 +326,7 @@
         cyclesInput.value = btn.dataset.presetCycles;
         setsInput.value = btn.dataset.presetSets;
         resetTimer();
+        logTimerEvent('preset', { name: `${btn.dataset.presetWork}/${btn.dataset.presetRest}` });
       });
     });
 
