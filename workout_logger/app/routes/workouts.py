@@ -113,6 +113,43 @@ def _labelize_group_key(group_key: str) -> str:
     return text.title() if text else "Group"
 
 
+def _parse_set_values_from_mapping(data: object) -> tuple[int, int | None, int | None, float, float | None]:
+    get = data.get if hasattr(data, "get") else (lambda _key, default=None: default)
+    set_no = int((get("set_no") or "").strip() if isinstance(get("set_no"), str) else (get("set_no") or ""))
+    reps_raw = (get("reps") or "").strip() if isinstance(get("reps"), str) else str(get("reps") or "").strip()
+    duration_raw = (
+        (get("duration_seconds") or "").strip()
+        if isinstance(get("duration_seconds"), str)
+        else str(get("duration_seconds") or "").strip()
+    )
+    reps = int(reps_raw) if reps_raw else None
+    duration_seconds = int(duration_raw) if duration_raw else None
+    weight_raw = (get("weight_kg") or "").strip() if isinstance(get("weight_kg"), str) else str(get("weight_kg") or "").strip()
+    if weight_raw:
+        weight_kg = float(weight_raw)
+    elif duration_seconds is not None and reps is None:
+        weight_kg = 1.0
+    else:
+        weight_kg = 0.0
+    rpe_raw = (get("rpe") or "").strip() if isinstance(get("rpe"), str) else str(get("rpe") or "").strip()
+    rpe = float(rpe_raw) if rpe_raw else None
+    return set_no, reps, duration_seconds, weight_kg, rpe
+
+
+def _validate_set_values(set_no: int, reps: int | None, duration_seconds: int | None, weight_kg: float) -> str | None:
+    if set_no < 1 or weight_kg < 0:
+        return "Set number and weight must be non-negative (set number starts at 1)."
+    if reps is None and duration_seconds is None:
+        return "Provide either reps or duration."
+    if reps is not None and reps < 0:
+        return "Reps must be 0 or more."
+    if duration_seconds is not None and duration_seconds < 1:
+        return "Duration must be at least 1 second."
+    if reps is not None and duration_seconds is not None:
+        return "Use either reps or duration for a set, not both."
+    return None
+
+
 @bp.get("/")
 @login_required
 def index():
@@ -359,32 +396,14 @@ def add_set(workout_id: int):
         return redirect(url_for("workouts.view_workout", workout_id=workout.id))
 
     try:
-        set_no = int(request.form.get("set_no") or "")
-        reps_raw = (request.form.get("reps") or "").strip()
-        duration_raw = (request.form.get("duration_seconds") or "").strip()
-        reps = int(reps_raw) if reps_raw else None
-        duration_seconds = int(duration_raw) if duration_raw else None
-        weight_kg = float(request.form.get("weight_kg") or "0")
-        rpe_raw = (request.form.get("rpe") or "").strip()
-        rpe = float(rpe_raw) if rpe_raw else None
+        set_no, reps, duration_seconds, weight_kg, rpe = _parse_set_values_from_mapping(request.form)
     except ValueError:
         flash("Set values are invalid.", "error")
         return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=exercise.id))
 
-    if set_no < 1 or weight_kg < 0:
-        flash("Set number and weight must be non-negative (set number starts at 1).", "error")
-        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=exercise.id))
-    if reps is None and duration_seconds is None:
-        flash("Provide either reps or duration.", "error")
-        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=exercise.id))
-    if reps is not None and reps < 0:
-        flash("Reps must be 0 or more.", "error")
-        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=exercise.id))
-    if duration_seconds is not None and duration_seconds < 1:
-        flash("Duration must be at least 1 second.", "error")
-        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=exercise.id))
-    if reps is not None and duration_seconds is not None:
-        flash("Use either reps or duration for a set, not both.", "error")
+    validation_error = _validate_set_values(set_no, reps, duration_seconds, weight_kg)
+    if validation_error:
+        flash(validation_error, "error")
         return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=exercise.id))
 
     existing_same_set_no = SetEntry.query.filter_by(
@@ -415,6 +434,73 @@ def add_set(workout_id: int):
     db.session.commit()
     flash("Set added.", "success")
     return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=exercise.id))
+
+
+@bp.post("/workouts/<int:workout_id>/add_sets_bulk")
+@login_required
+def add_sets_bulk(workout_id: int):
+    user = require_user()
+    workout = _user_workout_or_404(user.id, workout_id)
+    payload = request.get_json(silent=True) or {}
+    items = payload.get("items") if isinstance(payload, dict) else None
+    if not isinstance(items, list):
+        return jsonify({"ok": False, "error": "Invalid payload."}), 400
+
+    created = 0
+    errors: list[str] = []
+    seen_keys: set[tuple[int, int]] = set()
+    for idx, item in enumerate(items, start=1):
+        if not isinstance(item, dict):
+            errors.append(f"Row {idx}: invalid item.")
+            continue
+        exercise_id = item.get("exercise_id")
+        if not isinstance(exercise_id, int):
+            errors.append(f"Row {idx}: missing exercise_id.")
+            continue
+        exercise = Exercise.query.filter_by(id=exercise_id, user_id=user.id).first()
+        if exercise is None:
+            errors.append(f"Row {idx}: exercise not found.")
+            continue
+        try:
+            set_no, reps, duration_seconds, weight_kg, rpe = _parse_set_values_from_mapping(item)
+        except ValueError:
+            errors.append(f"Row {idx} ({exercise.name}): invalid values.")
+            continue
+        validation_error = _validate_set_values(set_no, reps, duration_seconds, weight_kg)
+        if validation_error:
+            errors.append(f"Row {idx} ({exercise.name}): {validation_error}")
+            continue
+        key = (exercise.id, set_no)
+        if key in seen_keys:
+            errors.append(f"Row {idx} ({exercise.name}): duplicate set #{set_no} in this save.")
+            continue
+        seen_keys.add(key)
+        duplicate = SetEntry.query.filter_by(
+            user_id=user.id,
+            workout_id=workout.id,
+            exercise_id=exercise.id,
+            set_no=set_no,
+        ).first()
+        if duplicate is not None:
+            errors.append(f"Row {idx} ({exercise.name}): set #{set_no} already exists.")
+            continue
+        db.session.add(
+            SetEntry(
+                user_id=user.id,
+                workout_id=workout.id,
+                exercise_id=exercise.id,
+                set_no=set_no,
+                reps=reps,
+                duration_seconds=duration_seconds,
+                weight_kg=weight_kg,
+                rpe=rpe,
+            )
+        )
+        created += 1
+
+    if created:
+        db.session.commit()
+    return jsonify({"ok": True, "created": created, "errors": errors})
 
 
 @bp.post("/workouts/<int:workout_id>/update")
@@ -475,32 +561,14 @@ def update_set(workout_id: int, set_id: int):
         abort(404)
 
     try:
-        set_no = int(request.form.get("set_no") or "")
-        reps_raw = (request.form.get("reps") or "").strip()
-        duration_raw = (request.form.get("duration_seconds") or "").strip()
-        reps = int(reps_raw) if reps_raw else None
-        duration_seconds = int(duration_raw) if duration_raw else None
-        weight_kg = float(request.form.get("weight_kg") or "0")
-        rpe_raw = (request.form.get("rpe") or "").strip()
-        rpe = float(rpe_raw) if rpe_raw else None
+        set_no, reps, duration_seconds, weight_kg, rpe = _parse_set_values_from_mapping(request.form)
     except ValueError:
         flash("Set values are invalid.", "error")
         return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=set_entry.exercise_id))
 
-    if set_no < 1 or weight_kg < 0:
-        flash("Set number and weight must be non-negative (set number starts at 1).", "error")
-        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=set_entry.exercise_id))
-    if reps is None and duration_seconds is None:
-        flash("Provide either reps or duration.", "error")
-        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=set_entry.exercise_id))
-    if reps is not None and reps < 0:
-        flash("Reps must be 0 or more.", "error")
-        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=set_entry.exercise_id))
-    if duration_seconds is not None and duration_seconds < 1:
-        flash("Duration must be at least 1 second.", "error")
-        return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=set_entry.exercise_id))
-    if reps is not None and duration_seconds is not None:
-        flash("Use either reps or duration for a set, not both.", "error")
+    validation_error = _validate_set_values(set_no, reps, duration_seconds, weight_kg)
+    if validation_error:
+        flash(validation_error, "error")
         return redirect(url_for("workouts.view_workout", workout_id=workout.id, exercise_id=set_entry.exercise_id))
 
     duplicate = SetEntry.query.filter(

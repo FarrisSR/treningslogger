@@ -129,7 +129,14 @@
         </div>
       </form>
     </div>
-    <div class="workout-plan-view-root" id="workout-plan-view-root" data-view-mode="{{ workout_view_mode }}">
+    <div class="inline" style="justify-content:space-between; margin:0.75rem 0;">
+      <button type="button" id="save-all-sets-btn" class="secondary"
+              data-bulk-url="{{ url_for('workouts.add_sets_bulk', workout_id=workout.id) }}">
+        Lagre alle synlige sett
+      </button>
+      <span id="save-all-status" class="muted" aria-live="polite"></span>
+    </div>
+    <div class="workout-plan-view-root" id="workout-plan-view-root" data-view-mode="{{ workout_view_mode }}" data-workout-id="{{ workout.id }}">
       <div class="plan-view-tabs">
         {% for group in plan_mode_groups %}
           <button type="button" class="plan-view-tab-btn" data-plan-group-tab="{{ group.id }}">{{ group.title }}</button>
@@ -195,15 +202,17 @@
                 </td>
                 <td>
                   {% if not row.logged %}
-                  <form method="post" action="{{ url_for('workouts.add_set', workout_id=workout.id) }}" class="inline" style="align-items:center;">
+                  <form method="post" action="{{ url_for('workouts.add_set', workout_id=workout.id) }}" class="inline quick-log-form" style="align-items:center;"
+                        data-quick-log-form="1" data-exercise-id="{{ section.exercise.id }}">
                     <input type="hidden" name="exercise_id" value="{{ section.exercise.id }}">
                     <input type="hidden" name="set_no" value="{{ row.set_no }}">
                     {% if row.target_mode == 'duration' %}
                       <input name="duration_seconds" type="number" min="1" step="1" value="{{ row.suggested_duration_seconds if row.suggested_duration_seconds is not none else '' }}" style="max-width:120px;" readonly>
+                      <input name="weight_kg" type="hidden" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else 1 }}">
                     {% else %}
                       <input name="reps" type="number" min="0" step="1" value="{{ row.suggested_reps if row.suggested_reps is not none else '' }}" placeholder="Reps" style="max-width:90px;" required>
+                      <input name="weight_kg" type="number" min="0" step="0.5" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else '' }}" placeholder="kg" style="max-width:110px;" required>
                     {% endif %}
-                    <input name="weight_kg" type="number" min="0" step="0.5" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else '' }}" placeholder="kg" style="max-width:110px;" required>
                     <input name="rpe" type="number" min="0" max="10" step="0.5" placeholder="RPE" style="max-width:90px;">
                     <button type="submit">Save</button>
                   </form>
@@ -252,7 +261,8 @@
                   {% endif %}
                 </div>
                 {% if not row.logged %}
-                  <form method="post" action="{{ url_for('workouts.add_set', workout_id=workout.id) }}" class="grid">
+                  <form method="post" action="{{ url_for('workouts.add_set', workout_id=workout.id) }}" class="grid quick-log-form"
+                        data-quick-log-form="1" data-exercise-id="{{ section.exercise.id }}">
                     <input type="hidden" name="exercise_id" value="{{ section.exercise.id }}">
                     <input type="hidden" name="set_no" value="{{ row.set_no }}">
                     {% if row.target_mode == 'duration' %}
@@ -260,17 +270,18 @@
                         <label>Duration (sec)</label>
                         <input name="duration_seconds" type="number" min="1" step="1" value="{{ row.suggested_duration_seconds if row.suggested_duration_seconds is not none else '' }}" readonly>
                       </div>
+                      <input name="weight_kg" type="hidden" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else 1 }}">
                     {% else %}
                       <div>
                         <label>Reps</label>
                         <input name="reps" type="number" min="0" step="1" value="{{ row.suggested_reps if row.suggested_reps is not none else '' }}" required>
                       </div>
-                    {% endif %}
-                    <div class="inline">
                       <div>
                         <label>kg</label>
                         <input name="weight_kg" type="number" min="0" step="0.5" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else '' }}" required>
                       </div>
+                    {% endif %}
+                    <div class="inline">
                       <div>
                         <label>RPE</label>
                         <input name="rpe" type="number" min="0" max="10" step="0.5">

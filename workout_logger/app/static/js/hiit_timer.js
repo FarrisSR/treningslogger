@@ -47,6 +47,7 @@
     const storageKey = 'workout_logger:hiit_timer_settings';
 
     let audioContext = null;
+    let wakeLock = null;
     let timerId = null;
     let running = false;
     let phaseStartedAt = 0;
@@ -139,6 +140,24 @@
       osc.stop(now + (isFinal ? 0.26 : 0.16));
     }
 
+    async function requestWakeLock() {
+      if (!('wakeLock' in navigator) || wakeLock) return;
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', function () {
+          wakeLock = null;
+        });
+      } catch (_err) {}
+    }
+
+    async function releaseWakeLock() {
+      if (!wakeLock) return;
+      try {
+        await wakeLock.release();
+      } catch (_err) {}
+      wakeLock = null;
+    }
+
     function currentPhase() {
       return state && state.phases[state.phaseIndex] ? state.phases[state.phaseIndex] : null;
     }
@@ -187,6 +206,7 @@
       progressBar.style.width = '100%';
       summaryNext.textContent = '-';
       beep(true);
+      void releaseWakeLock();
     }
 
     function advancePhase() {
@@ -232,6 +252,7 @@
       }
       ensureAudioReady();
       running = true;
+      void requestWakeLock();
       phaseStartedAt = Date.now() - (((currentPhase() ? currentPhase().seconds * 1000 : 0) - remainingMs));
       window.clearInterval(timerId);
       timerId = window.setInterval(tick, 100);
@@ -243,6 +264,7 @@
       running = false;
       window.clearInterval(timerId);
       timerId = null;
+      void releaseWakeLock();
       render();
     }
 
@@ -250,6 +272,7 @@
       running = false;
       window.clearInterval(timerId);
       timerId = null;
+      void releaseWakeLock();
       beepedSecond = null;
       config = readConfig();
       state = {
@@ -286,6 +309,12 @@
     form.addEventListener('submit', function (event) {
       event.preventDefault();
       startTimer();
+    });
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && running) {
+        void requestWakeLock();
+      }
     });
 
     loadSettings();

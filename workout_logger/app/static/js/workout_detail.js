@@ -42,15 +42,26 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     const planViewRoot = document.getElementById('workout-plan-view-root');
+    const panel = document.getElementById('exercise-hint-panel');
+    const saveAllBtn = document.getElementById('save-all-sets-btn');
+    const saveAllStatus = document.getElementById('save-all-status');
+    const workoutIdForStorage = (panel && panel.dataset.workoutId) || (planViewRoot && planViewRoot.dataset.workoutId) || '0';
     if (planViewRoot) {
       const tabs = Array.from(planViewRoot.querySelectorAll('[data-plan-group-tab]'));
       const cards = Array.from(planViewRoot.querySelectorAll('[data-plan-group]'));
       const bodies = Array.from(planViewRoot.querySelectorAll('[data-plan-group-body]'));
       const toggles = Array.from(planViewRoot.querySelectorAll('[data-plan-group-toggle]'));
-      let activeGroupId = (tabs[0] && tabs[0].dataset.planGroupTab) || (toggles[0] && toggles[0].dataset.planGroupToggle) || null;
+      const groupStorageKey = `workout_logger:active_plan_group:${workoutIdForStorage}`;
+      const defaultGroupId = (tabs[0] && tabs[0].dataset.planGroupTab) || (toggles[0] && toggles[0].dataset.planGroupToggle) || null;
+      const storedGroupId = localStorage.getItem(groupStorageKey);
+      const hasStoredGroup = storedGroupId && cards.some((card) => card.dataset.planGroup === storedGroupId);
+      let activeGroupId = hasStoredGroup ? storedGroupId : defaultGroupId;
 
       function renderPlanMode() {
         const mode = planViewRoot.dataset.viewMode || 'accordion';
+        if (activeGroupId) {
+          localStorage.setItem(groupStorageKey, activeGroupId);
+        }
         tabs.forEach((btn) => {
           const isActive = btn.dataset.planGroupTab === activeGroupId;
           btn.dataset.active = isActive ? '1' : '0';
@@ -87,7 +98,7 @@
           const mode = planViewRoot.dataset.viewMode || 'accordion';
           const id = btn.dataset.planGroupToggle;
           if (mode === 'accordion') {
-            activeGroupId = activeGroupId === id ? id : id;
+            activeGroupId = id;
           } else if (mode === 'tabs') {
             activeGroupId = id;
           }
@@ -97,8 +108,6 @@
 
       renderPlanMode();
     }
-
-    const panel = document.getElementById('exercise-hint-panel');
     const select = document.getElementById('exercise_id');
     const addSetForm = document.getElementById('add-set-form');
     const setNoInput = document.getElementById('set_no');
@@ -106,6 +115,8 @@
     const durationInput = document.getElementById('duration_seconds');
     const repsField = document.getElementById('reps-field');
     const durationField = document.getElementById('duration-field');
+    const weightField = document.getElementById('weight-field');
+    const weightInput = document.getElementById('weight_kg');
     const exerciseNameInput = document.getElementById('exercise_name');
     const planMeta = document.getElementById('exercise-plan-meta');
     if (!panel || !select) return;
@@ -195,6 +206,18 @@
       if (durationField) durationField.hidden = targetMode !== 'duration';
       if (repsInput) repsInput.required = targetMode !== 'duration';
       if (durationInput) durationInput.required = targetMode === 'duration';
+      if (weightField) weightField.hidden = targetMode === 'duration';
+      if (weightInput) {
+        if (targetMode === 'duration') {
+          weightInput.required = false;
+          weightInput.value = '1';
+        } else {
+          weightInput.required = true;
+          if (weightInput.value === '1' && weightInput.dataset.autofilledDuration === '1') {
+            weightInput.value = '';
+          }
+        }
+      }
       if (repsInput) {
         const suggestedReps = option.dataset.suggestedReps || '';
         if (targetMode !== 'duration' && suggestedReps) {
@@ -213,9 +236,15 @@
         if (targetMode === 'duration' && suggestedDuration) {
           durationInput.value = suggestedDuration;
           durationInput.readOnly = true;
+          if (weightInput) {
+            weightInput.dataset.autofilledDuration = '1';
+          }
         } else {
           durationInput.readOnly = false;
           durationInput.value = '';
+          if (weightInput) {
+            weightInput.dataset.autofilledDuration = '0';
+          }
         }
       }
       updateExerciseMeta();
@@ -240,6 +269,11 @@
           durationInput.required = false;
           durationInput.readOnly = false;
           durationInput.value = '';
+        }
+        if (weightField) weightField.hidden = false;
+        if (weightInput) {
+          weightInput.required = true;
+          weightInput.dataset.autofilledDuration = '0';
         }
         updateExerciseMeta();
         return;
@@ -327,6 +361,71 @@
       void handleExerciseChange();
     } else {
       updateExerciseMeta();
+    }
+
+    async function saveVisibleQuickLogs() {
+      if (!saveAllBtn || !saveAllBtn.dataset.bulkUrl) return;
+      const quickForms = Array.from(document.querySelectorAll('form[data-quick-log-form="1"]'))
+        .filter((form) => form.offsetParent !== null);
+      if (!quickForms.length) {
+        if (saveAllStatus) saveAllStatus.textContent = 'Ingen synlige sett å lagre.';
+        return;
+      }
+      const items = [];
+      quickForms.forEach((form) => {
+        const data = new FormData(form);
+        const exerciseId = Number(data.get('exercise_id') || 0);
+        const setNo = Number(data.get('set_no') || 0);
+        const repsRaw = (data.get('reps') || '').toString().trim();
+        const durationRaw = (data.get('duration_seconds') || '').toString().trim();
+        const weightRaw = (data.get('weight_kg') || '').toString().trim();
+        const rpeRaw = (data.get('rpe') || '').toString().trim();
+        if (!exerciseId || !setNo) return;
+        if (!repsRaw && !durationRaw) return;
+        if (repsRaw && Number.isNaN(Number(repsRaw))) return;
+        if (durationRaw && Number.isNaN(Number(durationRaw))) return;
+        if (weightRaw && Number.isNaN(Number(weightRaw))) return;
+        if (rpeRaw && Number.isNaN(Number(rpeRaw))) return;
+        items.push({
+          exercise_id: exerciseId,
+          set_no: setNo,
+          reps: repsRaw || null,
+          duration_seconds: durationRaw || null,
+          weight_kg: weightRaw || null,
+          rpe: rpeRaw || null
+        });
+      });
+      if (!items.length) {
+        if (saveAllStatus) saveAllStatus.textContent = 'Fyll inn minst ett synlig sett først.';
+        return;
+      }
+      saveAllBtn.disabled = true;
+      if (saveAllStatus) saveAllStatus.textContent = 'Lagrer...';
+      try {
+        const response = await fetch(saveAllBtn.dataset.bulkUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ items })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) throw new Error(result.error || 'Bulk save failed');
+        if (result.errors && result.errors.length) {
+          if (saveAllStatus) saveAllStatus.textContent = `Lagret ${result.created}. ${result.errors.length} med feil.`;
+        } else if (saveAllStatus) {
+          saveAllStatus.textContent = `Lagret ${result.created} sett.`;
+        }
+        window.setTimeout(() => window.location.reload(), 300);
+      } catch (_err) {
+        if (saveAllStatus) saveAllStatus.textContent = 'Klarte ikke lagre alle sett.';
+      } finally {
+        saveAllBtn.disabled = false;
+      }
+    }
+
+    if (saveAllBtn) {
+      saveAllBtn.addEventListener('click', function () {
+        void saveVisibleQuickLogs();
+      });
     }
   });
 })();
