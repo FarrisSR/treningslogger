@@ -537,6 +537,26 @@ def set_workout_view_mode_preference():
     return redirect(next_url)
 
 
+@bp.post("/preferences/language")
+@login_required
+def set_language_preference():
+    user = require_user()
+    language = (request.form.get("language") or "").strip().lower()
+    next_url = request.form.get("next") or url_for("workouts.index")
+    if language not in {"nb", "en"}:
+        flash("Ugyldig språkvalg.", "error")
+        return redirect(next_url)
+    profile = user.profile
+    if profile is None:
+        profile = UserProfile(user_id=user.id, language=language)
+        db.session.add(profile)
+    else:
+        profile.language = language
+    db.session.commit()
+    flash("Språk lagret.", "success")
+    return redirect(next_url)
+
+
 @bp.post("/workouts/<int:workout_id>/sets/<int:set_id>/delete")
 @login_required
 def delete_set(workout_id: int, set_id: int):
@@ -608,7 +628,7 @@ def _export_rows(user_id: int):
         SetEntry.query.join(Workout, SetEntry.workout_id == Workout.id)
         .join(Exercise, SetEntry.exercise_id == Exercise.id)
         .filter(SetEntry.user_id == user_id, Workout.user_id == user_id, Exercise.user_id == user_id)
-        .order_by(Workout.workout_date.asc(), Workout.created_at.asc(), Exercise.name.asc(), SetEntry.set_no.asc())
+        .order_by(Workout.workout_date.desc(), Workout.created_at.desc(), Exercise.name.asc(), SetEntry.set_no.asc())
         .with_entities(
             Workout.workout_date,
             Workout.title,

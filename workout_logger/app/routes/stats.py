@@ -8,7 +8,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from flask import Blueprint, Response, render_template
 
-from ..services.stats import pr_estimate_points, weekly_duration_points, weekly_volume_points
+from ..services.stats import exercise_overview_rows, pr_estimate_points, weekly_duration_points, weekly_volume_points
 from . import login_required, require_user
 
 bp = Blueprint("stats", __name__, url_prefix="/stats")
@@ -37,7 +37,8 @@ def _line_chart_png(points, title: str, ylabel: str, color: str) -> bytes:
 @bp.get("")
 @login_required
 def stats_index():
-    return render_template("stats/index.html")
+    user = require_user()
+    return render_template("stats/index.html", exercise_rows=exercise_overview_rows(user.id))
 
 
 @bp.get("/volume.png")

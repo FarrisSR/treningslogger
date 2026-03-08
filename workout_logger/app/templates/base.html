@@ -67,19 +67,29 @@
 <body>
   <header>
     <nav>
-      <a class="nav-link-tooltip" data-tooltip="Oversikt med nylige økter og raske snarveier." href="{{ url_for('workouts.index') }}">Hjem</a>
+      <a class="nav-link-tooltip" data-tooltip="Oversikt med nylige økter og raske snarveier." href="{{ url_for('workouts.index') }}">{{ t('nav.home') }}</a>
       {% if g.current_user %}
-        <a class="nav-link-tooltip" data-tooltip="Opprett en ny treningsøkt manuelt." href="{{ url_for('workouts.create_workout') }}">Ny økt</a>
-        <a class="nav-link-tooltip" data-tooltip="Lag og start treningsøkter basert på planer." href="{{ url_for('plans.list_plans') }}">Treningsøkt bygger</a>
-        <a class="nav-link-tooltip" data-tooltip="Intervalltimer for HIIT og Tabata med nedtelling og pip." href="{{ url_for('timer.hiit_timer') }}">HIIT / Tabata</a>
-        <a class="nav-link-tooltip" data-tooltip="Grafer for volum, estimert 1RM og tidsbasert arbeid." href="{{ url_for('stats.stats_index') }}">Stats</a>
-        <a class="nav-link-tooltip" data-tooltip="Full eksport av planer og økter som JSON for backup/redigering." href="{{ url_for('workouts.export_workouts_json') }}">JSON</a>
-        <a class="nav-link-tooltip" data-tooltip="Last ned alle registrerte sett som CSV-fil." href="{{ url_for('workouts.export_sets_csv') }}">CSV</a>
-        <a class="nav-link-tooltip" data-tooltip="Last ned alle registrerte sett som Excel-fil (.xlsx)." href="{{ url_for('workouts.export_sets_xlsx') }}">Excel</a>
-        <a class="nav-link-tooltip" data-tooltip="Importer JSON-backup eller historiske sett fra CSV." href="{{ url_for('workouts.import_tools') }}">Import</a>
+        <a class="nav-link-tooltip" data-tooltip="Opprett en ny treningsøkt manuelt." href="{{ url_for('workouts.create_workout') }}">{{ t('nav.new_workout') }}</a>
+        <a class="nav-link-tooltip" data-tooltip="Lag og start treningsøkter basert på planer." href="{{ url_for('plans.list_plans') }}">{{ t('nav.plan_builder') }}</a>
+        <a class="nav-link-tooltip" data-tooltip="Intervalltimer for HIIT og Tabata med nedtelling og pip." href="{{ url_for('timer.hiit_timer') }}">{{ t('nav.hiit') }}</a>
+        <a class="nav-link-tooltip" data-tooltip="Grafer for volum, estimert 1RM og tidsbasert arbeid." href="{{ url_for('stats.stats_index') }}">{{ t('nav.stats') }}</a>
+        <a class="nav-link-tooltip" data-tooltip="Full eksport av planer og økter som JSON for backup/redigering." href="{{ url_for('workouts.export_workouts_json') }}">{{ t('nav.json') }}</a>
+        <a class="nav-link-tooltip" data-tooltip="Last ned alle registrerte sett som CSV-fil." href="{{ url_for('workouts.export_sets_csv') }}">{{ t('nav.csv') }}</a>
+        <a class="nav-link-tooltip" data-tooltip="Last ned alle registrerte sett som Excel-fil (.xlsx)." href="{{ url_for('workouts.export_sets_xlsx') }}">{{ t('nav.excel') }}</a>
+        <a class="nav-link-tooltip" data-tooltip="Importer JSON-backup eller historiske sett fra CSV." href="{{ url_for('workouts.import_tools') }}">{{ t('nav.import') }}</a>
+        <form method="post" action="{{ url_for('workouts.set_language_preference') }}" class="inline" style="margin-left:auto; width:auto;">
+          <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+          <div style="min-width:120px;">
+            <label for="language" style="font-size:0.8rem; color:#d1fae5; margin:0 0 0.15rem;">{{ t('lang.label') }}</label>
+            <select id="language" name="language" onchange="this.form.submit()" style="padding:0.35rem; border-radius:6px;">
+              <option value="nb" {% if current_lang == 'nb' %}selected{% endif %}>{{ t('lang.norwegian') }}</option>
+              <option value="en" {% if current_lang == 'en' %}selected{% endif %}>{{ t('lang.english') }}</option>
+            </select>
+          </div>
+        </form>
         <span class="pill">{{ g.current_user.username }}</span>
-        <form method="post" action="{{ url_for('auth.logout') }}">
-          <button type="submit" class="secondary">Logout</button>
+        <form method="post" action="{{ url_for('auth.logout') }}" style="margin-left:0;">
+          <button type="submit" class="secondary">{{ t('nav.logout') }}</button>
         </form>
       {% else %}
         <a href="{{ url_for('auth.login') }}">Login</a>

@@ -113,6 +113,23 @@ def _ensure_plan_exercise_schema() -> None:
             conn.execute(text("ALTER TABLE plan_exercise ADD COLUMN side VARCHAR(16)"))
 
 
+def _ensure_user_profile_schema() -> None:
+    engine = db.engine
+    if engine.url.get_backend_name() != "sqlite":
+        return
+    with engine.begin() as conn:
+        table_exists = conn.execute(
+            text("SELECT name FROM sqlite_master WHERE type='table' AND name='user_profile'")
+        ).first()
+        if not table_exists:
+            return
+        columns = conn.execute(text("PRAGMA table_info(user_profile)")).mappings().all()
+        names = {col["name"] for col in columns}
+        if "language" not in names:
+            conn.execute(text("ALTER TABLE user_profile ADD COLUMN language VARCHAR(8)"))
+            conn.execute(text("UPDATE user_profile SET language='nb' WHERE language IS NULL OR language=''"))
+
+
 def _format_duration_seconds(value: int | None) -> str:
     if value is None:
         return ""
@@ -139,7 +156,12 @@ def create_app(config_object: type[Config] = Config) -> Flask:
     db.init_app(app)
     app.jinja_env.filters["fmt_duration"] = _format_duration_seconds
 
+    from .i18n import get_language, translate
     from .models import User, UserProfile  # noqa: F401
+
+    @app.context_processor
+    def inject_i18n():
+        return {"t": translate, "current_lang": get_language()}
 
     @app.before_request
     def load_current_user_and_init_db() -> None:
@@ -147,6 +169,7 @@ def create_app(config_object: type[Config] = Config) -> Flask:
             db.create_all()
             _ensure_set_entry_schema()
             _ensure_plan_exercise_schema()
+            _ensure_user_profile_schema()
             app.extensions["_tables_ready"] = True
         user_id = session.get("user_id")
         g.current_user = User.query.filter_by(id=user_id).first() if user_id else None

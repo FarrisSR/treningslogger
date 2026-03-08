@@ -1,18 +1,53 @@
 {% extends 'base.html' %}
-{% block title %}Stats | Workout Logger{% endblock %}
+{% block title %}{{ t('stats.title') }} | Workout Logger{% endblock %}
 {% block content %}
 <div class="grid grid-2">
   <section class="card">
-    <h2>Weekly Volume</h2>
+    <h2>{{ t('stats.weekly_volume') }}</h2>
     <img src="{{ url_for('stats.volume_png') }}" alt="Weekly volume chart" style="width:100%; border-radius:8px; border:1px solid #d6dbe0;">
   </section>
   <section class="card">
-    <h2>Estimated 1RM (Epley)</h2>
+    <h2>{{ t('stats.estimated_1rm') }}</h2>
     <img src="{{ url_for('stats.pr_png') }}" alt="Estimated 1RM chart" style="width:100%; border-radius:8px; border:1px solid #d6dbe0;">
   </section>
   <section class="card" style="grid-column: 1 / -1;">
-    <h2>Weekly Timed Work (Seconds)</h2>
+    <h2>{{ t('stats.weekly_time') }}</h2>
     <img src="{{ url_for('stats.time_png') }}" alt="Weekly timed work chart" style="width:100%; border-radius:8px; border:1px solid #d6dbe0;">
+  </section>
+  <section class="card" style="grid-column: 1 / -1;">
+    <h2>{{ t('stats.exercise_overview') }}</h2>
+    {% if exercise_rows %}
+      <table>
+        <thead>
+          <tr>
+            <th>{{ t('stats.col.exercise') }}</th>
+            <th>{{ t('stats.col.sets') }}</th>
+            <th>{{ t('stats.col.total_reps') }}</th>
+            <th>{{ t('stats.col.avg_reps') }}</th>
+            <th>{{ t('stats.col.best_weight') }}</th>
+            <th>{{ t('stats.col.last_weight') }}</th>
+            <th>{{ t('stats.col.total_time') }}</th>
+            <th>{{ t('stats.col.avg_rpe') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in exercise_rows %}
+            <tr>
+              <td>{{ row.exercise }}</td>
+              <td>{{ row.set_count }}</td>
+              <td>{{ row.total_reps }}</td>
+              <td>{{ '%.1f'|format(row.avg_reps) if row.avg_reps is not none else '' }}</td>
+              <td>{{ '%.2f'|format(row.best_weight_kg) }}</td>
+              <td>{{ '%.2f'|format(row.last_weight_kg) }}</td>
+              <td>{{ row.total_duration_seconds|fmt_duration if row.total_duration_seconds else '' }}</td>
+              <td>{{ '%.1f'|format(row.avg_rpe) if row.avg_rpe is not none else '' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">{{ t('stats.no_exercise_stats') }}</p>
+    {% endif %}
   </section>
 </div>
 {% endblock %}

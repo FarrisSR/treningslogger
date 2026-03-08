@@ -130,6 +130,16 @@
     const storageKey = `workout_logger:last_exercise:${panel.dataset.workoutId}`;
     let activeExerciseId = null;
 
+    function applyPreviousWeightHint(previousData) {
+      if (!weightInput || !previousData || !Array.isArray(previousData.sets) || !previousData.sets.length) return;
+      if (weightInput.value && Number(weightInput.value) > 0) return;
+      const desiredSetNo = Number(setNoInput && setNoInput.value ? setNoInput.value : 0);
+      const exact = previousData.sets.find((s) => Number(s.set_no) === desiredSetNo);
+      const candidate = exact || previousData.sets[previousData.sets.length - 1];
+      if (!candidate || candidate.weight_kg == null) return;
+      weightInput.value = String(candidate.weight_kg);
+    }
+
     async function fetchHint(exerciseId) {
       status.textContent = '';
       currentNote.disabled = true;
@@ -286,6 +296,7 @@
         if (data.previous) {
           previousMeta.textContent = `Previous: ${data.previous.workout_date} · ${data.previous.title}`;
           renderPreviousSets(previousSets, data.previous.sets || []);
+          applyPreviousWeightHint(data.previous);
         } else {
           previousMeta.textContent = 'No previous matching workout found';
           previousSets.innerHTML = '';
@@ -345,6 +356,13 @@
       addSetForm.addEventListener('submit', function () {
         if (select.value) {
           localStorage.setItem(storageKey, select.value);
+        }
+      });
+    }
+    if (setNoInput) {
+      setNoInput.addEventListener('change', function () {
+        if (activeExerciseId) {
+          void handleExerciseChange();
         }
       });
     }

@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
-{% block title %}Workouts | Workout Logger{% endblock %}
+{% block title %}{{ t('workouts.title') }} | Workout Logger{% endblock %}
 {% block content %}
 <div class="grid grid-2">
   <section class="card">
-    <h2>Recent Workouts</h2>
+    <h2>{{ t('workouts.recent') }}</h2>
     {% if workouts %}
       <table>
-        <thead><tr><th>Date</th><th>Title</th><th>Plan</th></tr></thead>
+        <thead><tr><th>{{ t('workouts.date') }}</th><th>{{ t('workouts.title_col') }}</th><th>{{ t('workouts.plan') }}</th></tr></thead>
         <tbody>
           {% for workout in workouts %}
           <tr>
@@ -18,16 +18,16 @@
         </tbody>
       </table>
     {% else %}
-      <p class="muted">No workouts yet.</p>
+      <p class="muted">{{ t('workouts.none') }}</p>
     {% endif %}
   </section>
 
   <section class="card">
-    <h2>Quick Actions</h2>
-    <p><a href="{{ url_for('workouts.create_workout') }}">Create workout</a></p>
-    <p><a href="{{ url_for('plans.create_plan') }}">Create plan</a></p>
+    <h2>{{ t('workouts.quick_actions') }}</h2>
+    <p><a href="{{ url_for('workouts.create_workout') }}">{{ t('workouts.create') }}</a></p>
+    <p><a href="{{ url_for('plans.create_plan') }}">{{ t('workouts.create_plan') }}</a></p>
     {% if plans %}
-      <h3>Start from plan</h3>
+      <h3>{{ t('workouts.start_from_plan') }}</h3>
       <div class="grid">
         {% for plan in plans %}
           <form method="post" action="{{ url_for('plans.start_workout_from_plan', plan_id=plan.id) }}">
