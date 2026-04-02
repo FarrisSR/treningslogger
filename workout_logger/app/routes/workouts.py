@@ -113,6 +113,16 @@ def _labelize_group_key(group_key: str) -> str:
     return text.title() if text else "Group"
 
 
+def _display_side_label(side: str | None) -> str | None:
+    if side == "left":
+        return "Venstre"
+    if side == "right":
+        return "Høyre"
+    if side == "both":
+        return "Begge"
+    return None
+
+
 def _parse_set_values_from_mapping(data: object) -> tuple[int, int | None, int | None, float, float | None]:
     get = data.get if hasattr(data, "get") else (lambda _key, default=None: default)
     set_no = int((get("set_no") or "").strip() if isinstance(get("set_no"), str) else (get("set_no") or ""))
@@ -357,6 +367,35 @@ def view_workout(workout_id: int):
                     "members": [section],
                 }
             )
+
+    for group in plan_mode_groups:
+        members = group.get("members") or []
+        group["paired_lr"] = False
+        group["left_member"] = None
+        group["right_member"] = None
+        group["combined_rows"] = []
+        if len(members) == 2:
+            by_side = {member.get("side"): member for member in members}
+            if "left" in by_side and "right" in by_side:
+                left_member = by_side["left"]
+                right_member = by_side["right"]
+                group["paired_lr"] = True
+                group["left_member"] = left_member
+                group["right_member"] = right_member
+                left_rows = {row["set_no"]: row for row in left_member.get("rows", [])}
+                right_rows = {row["set_no"]: row for row in right_member.get("rows", [])}
+                all_set_numbers = sorted(set(left_rows) | set(right_rows))
+                group["combined_rows"] = [
+                    {
+                        "set_no": set_no,
+                        "left": left_rows.get(set_no),
+                        "right": right_rows.get(set_no),
+                    }
+                    for set_no in all_set_numbers
+                ]
+
+        for member in members:
+            member["side_label"] = _display_side_label(member.get("side"))
 
     return render_template(
         "workouts/detail.html",

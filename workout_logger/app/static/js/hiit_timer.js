@@ -59,18 +59,14 @@
     let beepedSecond = null;
     let config = null;
     let state = null;
+    let currentRunId = null;
+    let currentPresetName = null;
 
     function loadSettings() {
       try {
         const raw = localStorage.getItem(storageKey);
         if (!raw) return;
         const saved = JSON.parse(raw);
-        workInput.value = clampInt(saved.work_seconds, 20, 1);
-        restInput.value = clampInt(saved.rest_seconds, 10, 0);
-        cyclesInput.value = clampInt(saved.cycles, 8, 1);
-        setsInput.value = clampInt(saved.sets, 1, 1);
-        setRestInput.value = clampInt(saved.set_rest_seconds, 60, 0);
-        startDelayInput.value = clampInt(saved.start_delay_seconds, 5, 0);
         keepScreenAwakeInput.checked = saved.keep_screen_awake !== false;
       } catch (_err) {}
     }
@@ -99,6 +95,10 @@
       return cfg.start_delay_seconds + workSegments + cycleRestSegments + setRestSegments;
     }
 
+    function makeRunId() {
+      return `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
     function logTimerEvent(eventName, extraData) {
       if (!trackUrl) return;
       const cfg = readConfig();
@@ -110,8 +110,15 @@
         sets: String(cfg.sets),
         set_rest: String(cfg.set_rest_seconds),
         start_delay: String(cfg.start_delay_seconds),
-        keep_awake: cfg.keep_screen_awake ? '1' : '0'
+        keep_awake: cfg.keep_screen_awake ? '1' : '0',
+        total_seconds: String(totalDurationSeconds(cfg))
       });
+      if (currentRunId) {
+        params.set('run_id', currentRunId);
+      }
+      if (currentPresetName) {
+        params.set('preset_name', currentPresetName);
+      }
       const phase = currentPhase();
       if (phase) {
         params.set('phase', phase.kind);
@@ -269,6 +276,7 @@
       beep(true);
       void releaseWakeLock();
       logTimerEvent('finish');
+      state.done = true;
     }
 
     function advancePhase() {
@@ -312,6 +320,9 @@
         const phase = currentPhase();
         remainingMs = phase ? phase.seconds * 1000 : 0;
       }
+      if (!currentRunId || (state && state.done)) {
+        currentRunId = makeRunId();
+      }
       ensureAudioReady();
       running = true;
       void requestWakeLock();
@@ -344,6 +355,7 @@
         phaseIndex: 0,
         done: false
       };
+      currentRunId = null;
       const phase = currentPhase();
       remainingMs = phase ? phase.seconds * 1000 : 0;
       render();
@@ -358,6 +370,7 @@
         setsInput.value = btn.dataset.presetSets;
         setRestInput.value = btn.dataset.presetSetRest || '60';
         startDelayInput.value = btn.dataset.presetStartDelay || '5';
+        currentPresetName = btn.textContent.trim();
         resetTimer();
         logTimerEvent('preset', { name: `${btn.dataset.presetWork}/${btn.dataset.presetRest}` });
       });
@@ -365,6 +378,7 @@
 
     [workInput, restInput, cyclesInput, setsInput, setRestInput, startDelayInput].forEach(function (input) {
       input.addEventListener('change', function () {
+        currentPresetName = null;
         if (!running) {
           resetTimer();
         }

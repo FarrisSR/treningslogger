@@ -30,8 +30,13 @@
 {% block content %}
 <div class="grid" data-hiit-root data-track-url="{{ url_for('timer.hiit_timer_track') }}">
   <section class="card">
-    <h1 style="margin-top:0;">HIIT / Tabata</h1>
-    <p class="muted">Still inn arbeid, hvile mellom sykler, hvile mellom sett, sykler og sett. Timeren piper de siste 5 sekundene i hver fase, med et tydelig høyere siste pip.</p>
+    <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:end;">
+      <div>
+        <h1 style="margin-top:0; margin-bottom:0;">HIIT / Tabata</h1>
+        <p class="muted" style="margin:0.35rem 0 0;">Still inn arbeid, hvile mellom sykler, hvile mellom sett, sykler og sett. Timeren piper de siste 5 sekundene i hver fase, med et tydelig høyere siste pip.</p>
+      </div>
+      <p style="margin:0;"><a href="{{ url_for('timer.hiit_timer_usage') }}">Se bruk</a></p>
+    </div>
   </section>
 
   <div class="timer-shell">
@@ -40,31 +45,31 @@
         <div class="inline">
           <div>
             <label for="work_seconds">Trening (sek)</label>
-            <input id="work_seconds" name="work_seconds" type="number" min="1" step="1" value="20" required>
+            <input id="work_seconds" name="work_seconds" type="number" min="1" step="1" value="{{ timer_defaults.work_seconds }}" required>
           </div>
           <div>
             <label for="rest_seconds">Hvile (sek)</label>
-            <input id="rest_seconds" name="rest_seconds" type="number" min="0" step="1" value="10" required>
+            <input id="rest_seconds" name="rest_seconds" type="number" min="0" step="1" value="{{ timer_defaults.rest_seconds }}" required>
           </div>
         </div>
         <div class="inline">
           <div>
             <label for="cycles">Sykler</label>
-            <input id="cycles" name="cycles" type="number" min="1" step="1" value="8" required>
+            <input id="cycles" name="cycles" type="number" min="1" step="1" value="{{ timer_defaults.cycles }}" required>
           </div>
           <div>
             <label for="sets">Sett</label>
-            <input id="sets" name="sets" type="number" min="1" step="1" value="1" required>
+            <input id="sets" name="sets" type="number" min="1" step="1" value="{{ timer_defaults.sets }}" required>
           </div>
         </div>
         <div class="inline">
           <div>
             <label for="set_rest_seconds">Hvile mellom sett (sek)</label>
-            <input id="set_rest_seconds" name="set_rest_seconds" type="number" min="0" step="1" value="60" required>
+            <input id="set_rest_seconds" name="set_rest_seconds" type="number" min="0" step="1" value="{{ timer_defaults.set_rest_seconds }}" required>
           </div>
           <div>
             <label for="start_delay_seconds">Nedtelling før start (sek)</label>
-            <input id="start_delay_seconds" name="start_delay_seconds" type="number" min="0" step="1" value="5" required>
+            <input id="start_delay_seconds" name="start_delay_seconds" type="number" min="0" step="1" value="{{ timer_defaults.start_delay_seconds }}" required>
           </div>
         </div>
         <div class="timer-actions">
@@ -86,6 +91,9 @@
           <button type="button" data-preset-work="20" data-preset-rest="10" data-preset-cycles="8" data-preset-sets="1" data-preset-set-rest="60" data-preset-start-delay="5">Tabata 20/10</button>
           <button type="button" data-preset-work="30" data-preset-rest="15" data-preset-cycles="10" data-preset-sets="1" data-preset-set-rest="90" data-preset-start-delay="5">30/15 x 10</button>
           <button type="button" data-preset-work="45" data-preset-rest="15" data-preset-cycles="5" data-preset-sets="3" data-preset-set-rest="120" data-preset-start-delay="8">45/15 x 5, 3 sett</button>
+          <button type="button" data-preset-work="50" data-preset-rest="10" data-preset-cycles="7" data-preset-sets="2" data-preset-set-rest="15" data-preset-start-delay="10">50/10 x 7, 2 sett</button>
+          <button type="button" data-preset-work="45" data-preset-rest="10" data-preset-cycles="9" data-preset-sets="2" data-preset-set-rest="15" data-preset-start-delay="10">45/10 x 9, 2 sett</button>
+          <button type="button" data-preset-work="45" data-preset-rest="10" data-preset-cycles="3" data-preset-sets="2" data-preset-set-rest="10" data-preset-start-delay="5">45/10 x 3, 2 sett</button>
         </div>
       </div>
     </section>

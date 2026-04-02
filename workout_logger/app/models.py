@@ -17,6 +17,7 @@ class User(db.Model):
     exercises = db.relationship("Exercise", back_populates="user", cascade="all, delete-orphan")
     workout_plans = db.relationship("WorkoutPlan", back_populates="user", cascade="all, delete-orphan")
     workouts = db.relationship("Workout", back_populates="user", cascade="all, delete-orphan")
+    timer_events = db.relationship("TimerEvent", back_populates="user", cascade="all, delete-orphan")
     profile = db.relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 
@@ -139,3 +140,23 @@ class WorkoutExerciseNote(db.Model):
 
     workout = db.relationship("Workout", back_populates="exercise_notes")
     exercise = db.relationship("Exercise", back_populates="workout_notes")
+
+
+class TimerEvent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True)
+    run_id = db.Column(db.String(64), nullable=True, index=True)
+    event = db.Column(db.String(32), nullable=False, index=True)
+    phase = db.Column(db.String(32), nullable=True)
+    work_seconds = db.Column(db.Integer, nullable=True)
+    rest_seconds = db.Column(db.Integer, nullable=True)
+    cycles = db.Column(db.Integer, nullable=True)
+    sets = db.Column(db.Integer, nullable=True)
+    set_rest_seconds = db.Column(db.Integer, nullable=True)
+    start_delay_seconds = db.Column(db.Integer, nullable=True)
+    total_duration_seconds = db.Column(db.Integer, nullable=True)
+    keep_awake = db.Column(db.Boolean, nullable=False, default=True)
+    preset_name = db.Column(db.String(80), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    user = db.relationship("User", back_populates="timer_events")

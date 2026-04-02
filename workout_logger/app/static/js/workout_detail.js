@@ -43,8 +43,8 @@
   document.addEventListener('DOMContentLoaded', function () {
     const planViewRoot = document.getElementById('workout-plan-view-root');
     const panel = document.getElementById('exercise-hint-panel');
-    const saveAllBtn = document.getElementById('save-all-sets-btn');
-    const saveAllStatus = document.getElementById('save-all-status');
+    const saveAllButtons = Array.from(document.querySelectorAll('[data-save-all-sets-btn="1"]'));
+    const saveAllStatusNodes = Array.from(document.querySelectorAll('[data-save-all-status="1"]'));
     const workoutIdForStorage = (panel && panel.dataset.workoutId) || (planViewRoot && planViewRoot.dataset.workoutId) || '0';
     if (planViewRoot) {
       const tabs = Array.from(planViewRoot.querySelectorAll('[data-plan-group-tab]'));
@@ -129,6 +129,18 @@
     const status = el('note-save-status');
     const storageKey = `workout_logger:last_exercise:${panel.dataset.workoutId}`;
     let activeExerciseId = null;
+
+    function setSaveAllStatus(message) {
+      saveAllStatusNodes.forEach((node) => {
+        node.textContent = message;
+      });
+    }
+
+    function setSaveAllDisabled(disabled) {
+      saveAllButtons.forEach((button) => {
+        button.disabled = disabled;
+      });
+    }
 
     function applyPreviousWeightHint(previousData) {
       if (!weightInput || !previousData || !Array.isArray(previousData.sets) || !previousData.sets.length) return;
@@ -382,11 +394,11 @@
     }
 
     async function saveVisibleQuickLogs() {
-      if (!saveAllBtn || !saveAllBtn.dataset.bulkUrl) return;
+      if (!saveAllButtons.length || !saveAllButtons[0].dataset.bulkUrl) return;
       const quickForms = Array.from(document.querySelectorAll('form[data-quick-log-form="1"]'))
         .filter((form) => form.offsetParent !== null);
       if (!quickForms.length) {
-        if (saveAllStatus) saveAllStatus.textContent = 'Ingen synlige sett å lagre.';
+        setSaveAllStatus('Ingen synlige registreringsrader å lagre.');
         return;
       }
       const items = [];
@@ -414,13 +426,13 @@
         });
       });
       if (!items.length) {
-        if (saveAllStatus) saveAllStatus.textContent = 'Fyll inn minst ett synlig sett først.';
+        setSaveAllStatus('Fyll inn minst én synlig rad først.');
         return;
       }
-      saveAllBtn.disabled = true;
-      if (saveAllStatus) saveAllStatus.textContent = 'Lagrer...';
+      setSaveAllDisabled(true);
+      setSaveAllStatus('Lagrer...');
       try {
-        const response = await fetch(saveAllBtn.dataset.bulkUrl, {
+        const response = await fetch(saveAllButtons[0].dataset.bulkUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
           body: JSON.stringify({ items })
@@ -428,22 +440,22 @@
         const result = await response.json();
         if (!response.ok || !result.ok) throw new Error(result.error || 'Bulk save failed');
         if (result.errors && result.errors.length) {
-          if (saveAllStatus) saveAllStatus.textContent = `Lagret ${result.created}. ${result.errors.length} med feil.`;
-        } else if (saveAllStatus) {
-          saveAllStatus.textContent = `Lagret ${result.created} sett.`;
+          setSaveAllStatus(`Lagret ${result.created} rader. ${result.errors.length} med feil.`);
+        } else {
+          setSaveAllStatus(`Lagret ${result.created} rader.`);
         }
         window.setTimeout(() => window.location.reload(), 300);
       } catch (_err) {
-        if (saveAllStatus) saveAllStatus.textContent = 'Klarte ikke lagre alle sett.';
+        setSaveAllStatus('Klarte ikke lagre alle sett.');
       } finally {
-        saveAllBtn.disabled = false;
+        setSaveAllDisabled(false);
       }
     }
 
-    if (saveAllBtn) {
-      saveAllBtn.addEventListener('click', function () {
+    if (saveAllButtons.length) {
+      saveAllButtons.forEach((button) => button.addEventListener('click', function () {
         void saveVisibleQuickLogs();
-      });
+      }));
     }
   });
 })();

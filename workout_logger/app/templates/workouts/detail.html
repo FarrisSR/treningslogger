@@ -27,9 +27,32 @@
   .plan-group-accordion-header { width: 100%; text-align: left; margin-bottom: 0.5rem; }
   .plan-member-header { display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.5rem; }
   .side-badge { display:inline-block; border-radius:999px; background:#f1f5f9; color:#0f172a; padding:0.1rem 0.45rem; font-size:0.75rem; margin-left:0.35rem; }
+  .bulk-entry-table { width: 100%; table-layout: fixed; }
+  .bulk-entry-table th:first-child,
+  .bulk-entry-table td:first-child { width: 52px; white-space: nowrap; }
+  .bulk-entry-table input { min-width: 0; width: 100%; padding: 0.4rem; }
+  .bulk-entry-table td { vertical-align: top; }
+  .bulk-entry-table .row-status { min-width: 0; }
+  .group-actions { display:flex; justify-content:space-between; align-items:center; gap:0.75rem; margin:0.75rem 0; flex-wrap:wrap; }
+  .group-actions button { width: auto; min-width: 180px; }
+  .paired-grid { display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem; }
+  .paired-column { border:1px solid #e5e7eb; border-radius:8px; padding:0.75rem; background:#fafafa; }
+  .paired-column h3 { margin-top:0; margin-bottom:0.5rem; }
+  .compact-inputs { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:0.35rem; align-items:start; }
   @media (max-width: 700px) {
     .plan-mode-desktop { display: none; }
     .plan-mode-mobile { display: block; }
+    .paired-grid { grid-template-columns: 1fr; }
+    .bulk-entry-table { table-layout: fixed; width: 100%; }
+    .bulk-entry-table th:first-child,
+    .bulk-entry-table td:first-child { width: 38px; }
+    .bulk-entry-table th,
+    .bulk-entry-table td { padding: 0.3rem; }
+    .bulk-entry-table .row-status { min-width: 0; font-size: 0.82rem; }
+    .compact-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.2rem; }
+    .compact-inputs input { padding: 0.3rem; font-size: 0.9rem; }
+    .group-actions { margin: 0.6rem 0; }
+    .group-actions button { width: 100%; }
   }
 </style>
 {% endblock %}
@@ -129,12 +152,12 @@
         </div>
       </form>
     </div>
-    <div class="inline" style="justify-content:space-between; margin:0.75rem 0;">
-      <button type="button" id="save-all-sets-btn" class="secondary"
+    <div class="group-actions">
+      <button type="button" class="secondary" data-save-all-sets-btn="1"
               data-bulk-url="{{ url_for('workouts.add_sets_bulk', workout_id=workout.id) }}">
-        Lagre alle synlige sett
+        Lagre synlig gruppe
       </button>
-      <span id="save-all-status" class="muted" aria-live="polite"></span>
+      <span data-save-all-status="1" class="muted" aria-live="polite">Fyll inn flere rader og lagre samlet.</span>
     </div>
     <div class="workout-plan-view-root" id="workout-plan-view-root" data-view-mode="{{ workout_view_mode }}" data-workout-id="{{ workout.id }}">
       <div class="plan-view-tabs">
@@ -147,154 +170,210 @@
         <div class="plan-group-card" data-plan-group="{{ group.id }}">
           <button type="button" class="plan-group-accordion-header" data-plan-group-toggle="{{ group.id }}">{{ group.title }}</button>
           <div class="plan-group-body" data-plan-group-body="{{ group.id }}">
-          {% for section in group.members %}
-          <div {% if not loop.first %}style="margin-top:0.75rem; border-top:1px dashed #d6dbe0; padding-top:0.75rem;"{% endif %}>
-          <div class="plan-member-header">
-            <div>
-              <strong>{{ section.exercise.name }}</strong>
-              {% if section.side %}
-                <span class="side-badge">{{ section.side }}</span>
-              {% endif %}
+          {% if group.paired_lr %}
+            <div class="paired-grid">
+              <div class="paired-column">
+                <h3>{{ group.left_member.exercise.name }}</h3>
+                <p class="muted" style="margin-top:0;">{{ group.left_member.side_label }}{% if group.left_member.target_sets or group.left_member.target_reps %} · Target: {{ group.left_member.target_sets or '' }}{% if group.left_member.target_sets and group.left_member.target_reps %} x {% endif %}{{ group.left_member.target_reps or '' }}{% endif %}</p>
+              </div>
+              <div class="paired-column">
+                <h3>{{ group.right_member.exercise.name }}</h3>
+                <p class="muted" style="margin-top:0;">{{ group.right_member.side_label }}{% if group.right_member.target_sets or group.right_member.target_reps %} · Target: {{ group.right_member.target_sets or '' }}{% if group.right_member.target_sets and group.right_member.target_reps %} x {% endif %}{{ group.right_member.target_reps or '' }}{% endif %}</p>
+              </div>
             </div>
-            <span class="muted">
-              {% if section.target_sets or section.target_reps %}
-                Target: {{ section.target_sets or '' }}{% if section.target_sets and section.target_reps %} x {% endif %}{{ section.target_reps or '' }}
-              {% else %}
-                No target
-              {% endif %}
-            </span>
-          </div>
-          <table class="plan-mode-desktop">
-            <thead><tr><th>Set</th><th>Target</th><th>Status</th><th>Quick Log</th></tr></thead>
-            <tbody>
-              {% for row in section.rows %}
-              <tr>
-                <td>{{ row.set_no }}</td>
-                <td>{{ section.target_reps or '' }}</td>
-                <td>
-                  {% if row.logged %}
-                    {% for s in row.logged %}
-                      <div class="muted">
-                        Done:
-                        {% if s.duration_seconds is not none %}
-                          {{ s.duration_seconds|fmt_duration }}
+            <table class="bulk-entry-table">
+              <thead>
+                <tr>
+                  <th>Sett</th>
+                  <th>{{ group.left_member.side_label }}</th>
+                  <th>{{ group.right_member.side_label }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for pair in group.combined_rows %}
+                  <tr>
+                    <td>{{ pair.set_no }}</td>
+                    <td>
+                      {% if pair.left %}
+                        {% set row = pair.left %}
+                        {% if row.logged %}
+                          {% for s in row.logged %}
+                            <div class="muted row-status">
+                              Logget:
+                              {% if s.duration_seconds is not none %}
+                                {{ s.duration_seconds|fmt_duration }}
+                              {% else %}
+                                {{ s.reps }} reps
+                              {% endif %}
+                              @ {{ '%.2f'|format(s.weight_kg) }}kg{% if s.rpe is not none %}, RPE {{ s.rpe }}{% endif %}
+                            </div>
+                            {{ render_set_edit_controls(s) }}
+                          {% endfor %}
                         {% else %}
-                          {{ s.reps }} reps
+                          {% if row.previous_set %}
+                            <div class="muted row-status">
+                              Forrige:
+                              {% if row.previous_set.duration_seconds is not none %}
+                                {{ row.previous_set.duration_seconds|fmt_duration }}
+                              {% else %}
+                                {{ row.previous_set.reps }} reps
+                              {% endif %}
+                              @ {{ '%.2f'|format(row.previous_set.weight_kg) }}kg{% if row.previous_set.rpe is not none %}, RPE {{ row.previous_set.rpe }}{% endif %}
+                            </div>
+                          {% endif %}
+                          <form method="post" action="{{ url_for('workouts.add_set', workout_id=workout.id) }}" class="grid quick-log-form" data-quick-log-form="1" data-exercise-id="{{ group.left_member.exercise.id }}">
+                            <input type="hidden" name="exercise_id" value="{{ group.left_member.exercise.id }}">
+                            <input type="hidden" name="set_no" value="{{ row.set_no }}">
+                            <div class="compact-inputs">
+                              {% if row.target_mode == 'duration' %}
+                                <input name="duration_seconds" type="number" min="1" step="1" value="{{ row.suggested_duration_seconds if row.suggested_duration_seconds is not none else '' }}" readonly>
+                                <input name="weight_kg" type="hidden" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else 1 }}">
+                              {% else %}
+                                <input name="reps" type="number" min="0" step="1" value="{{ row.suggested_reps if row.suggested_reps is not none else '' }}" placeholder="Reps" required>
+                                <input name="weight_kg" type="number" min="0" step="0.5" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else '' }}" placeholder="kg" required>
+                              {% endif %}
+                              <input name="rpe" type="number" min="0" max="10" step="0.5" placeholder="RPE">
+                            </div>
+                          </form>
                         {% endif %}
-                        @ {{ '%.2f'|format(s.weight_kg) }}kg{% if s.rpe is not none %}, RPE {{ s.rpe }}{% endif %}
-                      </div>
-                      {{ render_set_edit_controls(s) }}
-                    {% endfor %}
-                  {% else %}
-                    <div class="muted">Pending</div>
-                    {% if row.previous_set %}
-                      <div class="muted">
-                        Prev:
-                        {% if row.previous_set.duration_seconds is not none %}
-                          {{ row.previous_set.duration_seconds|fmt_duration }}
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if pair.right %}
+                        {% set row = pair.right %}
+                        {% if row.logged %}
+                          {% for s in row.logged %}
+                            <div class="muted row-status">
+                              Logget:
+                              {% if s.duration_seconds is not none %}
+                                {{ s.duration_seconds|fmt_duration }}
+                              {% else %}
+                                {{ s.reps }} reps
+                              {% endif %}
+                              @ {{ '%.2f'|format(s.weight_kg) }}kg{% if s.rpe is not none %}, RPE {{ s.rpe }}{% endif %}
+                            </div>
+                            {{ render_set_edit_controls(s) }}
+                          {% endfor %}
                         {% else %}
-                          {{ row.previous_set.reps }} reps
+                          {% if row.previous_set %}
+                            <div class="muted row-status">
+                              Forrige:
+                              {% if row.previous_set.duration_seconds is not none %}
+                                {{ row.previous_set.duration_seconds|fmt_duration }}
+                              {% else %}
+                                {{ row.previous_set.reps }} reps
+                              {% endif %}
+                              @ {{ '%.2f'|format(row.previous_set.weight_kg) }}kg{% if row.previous_set.rpe is not none %}, RPE {{ row.previous_set.rpe }}{% endif %}
+                            </div>
+                          {% endif %}
+                          <form method="post" action="{{ url_for('workouts.add_set', workout_id=workout.id) }}" class="grid quick-log-form" data-quick-log-form="1" data-exercise-id="{{ group.right_member.exercise.id }}">
+                            <input type="hidden" name="exercise_id" value="{{ group.right_member.exercise.id }}">
+                            <input type="hidden" name="set_no" value="{{ row.set_no }}">
+                            <div class="compact-inputs">
+                              {% if row.target_mode == 'duration' %}
+                                <input name="duration_seconds" type="number" min="1" step="1" value="{{ row.suggested_duration_seconds if row.suggested_duration_seconds is not none else '' }}" readonly>
+                                <input name="weight_kg" type="hidden" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else 1 }}">
+                              {% else %}
+                                <input name="reps" type="number" min="0" step="1" value="{{ row.suggested_reps if row.suggested_reps is not none else '' }}" placeholder="Reps" required>
+                                <input name="weight_kg" type="number" min="0" step="0.5" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else '' }}" placeholder="kg" required>
+                              {% endif %}
+                              <input name="rpe" type="number" min="0" max="10" step="0.5" placeholder="RPE">
+                            </div>
+                          </form>
                         {% endif %}
-                        @ {{ '%.2f'|format(row.previous_set.weight_kg) }}kg{% if row.previous_set.rpe is not none %}, RPE {{ row.previous_set.rpe }}{% endif %}
-                      </div>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            {% for section in group.members %}
+              <div {% if not loop.first %}style="margin-top:0.75rem; border-top:1px dashed #d6dbe0; padding-top:0.75rem;"{% endif %}>
+                <div class="plan-member-header">
+                  <div>
+                    <strong>{{ section.exercise.name }}</strong>
+                    {% if section.side_label %}
+                      <span class="side-badge">{{ section.side_label }}</span>
                     {% endif %}
-                  {% endif %}
-                </td>
-                <td>
-                  {% if not row.logged %}
-                  <form method="post" action="{{ url_for('workouts.add_set', workout_id=workout.id) }}" class="inline quick-log-form" style="align-items:center;"
-                        data-quick-log-form="1" data-exercise-id="{{ section.exercise.id }}">
-                    <input type="hidden" name="exercise_id" value="{{ section.exercise.id }}">
-                    <input type="hidden" name="set_no" value="{{ row.set_no }}">
-                    {% if row.target_mode == 'duration' %}
-                      <input name="duration_seconds" type="number" min="1" step="1" value="{{ row.suggested_duration_seconds if row.suggested_duration_seconds is not none else '' }}" style="max-width:120px;" readonly>
-                      <input name="weight_kg" type="hidden" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else 1 }}">
+                  </div>
+                  <span class="muted">
+                    {% if section.target_sets or section.target_reps %}
+                      Target: {{ section.target_sets or '' }}{% if section.target_sets and section.target_reps %} x {% endif %}{{ section.target_reps or '' }}
                     {% else %}
-                      <input name="reps" type="number" min="0" step="1" value="{{ row.suggested_reps if row.suggested_reps is not none else '' }}" placeholder="Reps" style="max-width:90px;" required>
-                      <input name="weight_kg" type="number" min="0" step="0.5" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else '' }}" placeholder="kg" style="max-width:110px;" required>
+                      No target
                     {% endif %}
-                    <input name="rpe" type="number" min="0" max="10" step="0.5" placeholder="RPE" style="max-width:90px;">
-                    <button type="submit">Save</button>
-                  </form>
-                  {% else %}
-                    <span class="muted">Logged</span>
-                  {% endif %}
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-          <div class="plan-mode-mobile">
-            {% for row in section.rows %}
-              <div class="plan-row-card">
-                <div style="display:flex; justify-content:space-between; gap:0.5rem; align-items:center; flex-wrap:wrap;">
-                  <strong>Set {{ row.set_no }}</strong>
-                  <span class="meta">Target: {{ section.target_reps or '' }}</span>
+                  </span>
                 </div>
-                <div class="meta">
-                  {% if row.logged %}
-                    {% for s in row.logged %}
-                      <div>
-                        Done:
-                        {% if s.duration_seconds is not none %}
-                          {{ s.duration_seconds|fmt_duration }}
-                        {% else %}
-                          {{ s.reps }} reps
-                        {% endif %}
-                        @ {{ '%.2f'|format(s.weight_kg) }}kg{% if s.rpe is not none %}, RPE {{ s.rpe }}{% endif %}
-                      </div>
-                      {{ render_set_edit_controls(s) }}
+                <table class="bulk-entry-table">
+                  <thead><tr><th>Sett</th><th>Forrige / Logget</th><th>Registrering</th></tr></thead>
+                  <tbody>
+                    {% for row in section.rows %}
+                      <tr>
+                        <td>{{ row.set_no }}</td>
+                        <td class="row-status">
+                          {% if row.logged %}
+                            {% for s in row.logged %}
+                              <div class="muted">
+                                Logget:
+                                {% if s.duration_seconds is not none %}
+                                  {{ s.duration_seconds|fmt_duration }}
+                                {% else %}
+                                  {{ s.reps }} reps
+                                {% endif %}
+                                @ {{ '%.2f'|format(s.weight_kg) }}kg{% if s.rpe is not none %}, RPE {{ s.rpe }}{% endif %}
+                              </div>
+                              {{ render_set_edit_controls(s) }}
+                            {% endfor %}
+                          {% else %}
+                            <div class="muted">Klar for registrering</div>
+                            {% if row.previous_set %}
+                              <div class="muted">
+                                Forrige:
+                                {% if row.previous_set.duration_seconds is not none %}
+                                  {{ row.previous_set.duration_seconds|fmt_duration }}
+                                {% else %}
+                                  {{ row.previous_set.reps }} reps
+                                {% endif %}
+                                @ {{ '%.2f'|format(row.previous_set.weight_kg) }}kg{% if row.previous_set.rpe is not none %}, RPE {{ row.previous_set.rpe }}{% endif %}
+                              </div>
+                            {% endif %}
+                          {% endif %}
+                        </td>
+                        <td>
+                          {% if not row.logged %}
+                            <form method="post" action="{{ url_for('workouts.add_set', workout_id=workout.id) }}" class="grid quick-log-form" data-quick-log-form="1" data-exercise-id="{{ section.exercise.id }}">
+                              <input type="hidden" name="exercise_id" value="{{ section.exercise.id }}">
+                              <input type="hidden" name="set_no" value="{{ row.set_no }}">
+                              <div class="compact-inputs">
+                                {% if row.target_mode == 'duration' %}
+                                  <input name="duration_seconds" type="number" min="1" step="1" value="{{ row.suggested_duration_seconds if row.suggested_duration_seconds is not none else '' }}" readonly>
+                                  <input name="weight_kg" type="hidden" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else 1 }}">
+                                {% else %}
+                                  <input name="reps" type="number" min="0" step="1" value="{{ row.suggested_reps if row.suggested_reps is not none else '' }}" placeholder="Reps" required>
+                                  <input name="weight_kg" type="number" min="0" step="0.5" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else '' }}" placeholder="kg" required>
+                                {% endif %}
+                                <input name="rpe" type="number" min="0" max="10" step="0.5" placeholder="RPE">
+                              </div>
+                            </form>
+                          {% else %}
+                            <span class="muted">Allerede lagret</span>
+                          {% endif %}
+                        </td>
+                      </tr>
                     {% endfor %}
-                  {% else %}
-                    <div>Pending</div>
-                    {% if row.previous_set %}
-                      <div>
-                        Prev:
-                        {% if row.previous_set.duration_seconds is not none %}
-                          {{ row.previous_set.duration_seconds|fmt_duration }}
-                        {% else %}
-                          {{ row.previous_set.reps }} reps
-                        {% endif %}
-                        @ {{ '%.2f'|format(row.previous_set.weight_kg) }}kg{% if row.previous_set.rpe is not none %}, RPE {{ row.previous_set.rpe }}{% endif %}
-                      </div>
-                    {% endif %}
-                  {% endif %}
-                </div>
-                {% if not row.logged %}
-                  <form method="post" action="{{ url_for('workouts.add_set', workout_id=workout.id) }}" class="grid quick-log-form"
-                        data-quick-log-form="1" data-exercise-id="{{ section.exercise.id }}">
-                    <input type="hidden" name="exercise_id" value="{{ section.exercise.id }}">
-                    <input type="hidden" name="set_no" value="{{ row.set_no }}">
-                    {% if row.target_mode == 'duration' %}
-                      <div>
-                        <label>Duration (sec)</label>
-                        <input name="duration_seconds" type="number" min="1" step="1" value="{{ row.suggested_duration_seconds if row.suggested_duration_seconds is not none else '' }}" readonly>
-                      </div>
-                      <input name="weight_kg" type="hidden" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else 1 }}">
-                    {% else %}
-                      <div>
-                        <label>Reps</label>
-                        <input name="reps" type="number" min="0" step="1" value="{{ row.suggested_reps if row.suggested_reps is not none else '' }}" required>
-                      </div>
-                      <div>
-                        <label>kg</label>
-                        <input name="weight_kg" type="number" min="0" step="0.5" value="{{ row.suggested_weight_kg if row.suggested_weight_kg is not none else '' }}" required>
-                      </div>
-                    {% endif %}
-                    <div class="inline">
-                      <div>
-                        <label>RPE</label>
-                        <input name="rpe" type="number" min="0" max="10" step="0.5">
-                      </div>
-                    </div>
-                    <button type="submit">Save Set {{ row.set_no }}</button>
-                  </form>
-                {% endif %}
+                  </tbody>
+                </table>
               </div>
             {% endfor %}
+          {% endif %}
+          <div class="group-actions">
+            <button type="button" class="secondary" data-save-all-sets-btn="1"
+                    data-bulk-url="{{ url_for('workouts.add_sets_bulk', workout_id=workout.id) }}">
+              Lagre synlig gruppe
+            </button>
+            <span data-save-all-status="1" class="muted" aria-live="polite"></span>
           </div>
-          </div>
-          {% endfor %}
           </div>
         </div>
       {% endfor %}

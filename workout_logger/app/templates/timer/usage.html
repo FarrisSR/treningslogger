@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}HIIT-bruk | Workout Logger{% endblock %}
+{% block content %}
+<div class="grid">
+  <section class="card">
+    <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:end;">
+      <div>
+        <h1 style="margin:0;">HIIT-bruk</h1>
+        <p class="muted" style="margin:0.35rem 0 0;">Denne siden viser timer-bruk som er logget via appens egen tracking-endpoint.</p>
+      </div>
+      <p style="margin:0;"><a href="{{ url_for('timer.hiit_timer') }}">Tilbake til timer</a></p>
+    </div>
+  </section>
+
+  <div class="grid grid-2">
+    <section class="card">
+      <h2>Hendelser</h2>
+      <table>
+        <thead><tr><th>Type</th><th>Antall</th></tr></thead>
+        <tbody>
+          {% for key, value in event_counts.most_common() %}
+            <tr><td>{{ key }}</td><td>{{ value }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Gjennomforing</h2>
+      <p><strong>Starter:</strong> {{ started_runs }}</p>
+      <p><strong>Fullfort:</strong> {{ finished_runs }}</p>
+      <p><strong>Completion rate:</strong> {{ '%.1f'|format(completion_rate) ~ '%' if completion_rate is not none else 'Ingen data' }}</p>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Mest brukte oppsett</h2>
+    {% if top_configs %}
+      <table>
+        <thead><tr><th>Oppsett</th><th>Antall events</th></tr></thead>
+        <tbody>
+          {% for cfg, count in top_configs %}
+            <tr>
+              <td>{{ cfg[0] }} / {{ cfg[1] }} · {{ cfg[2] }} sykler · {{ cfg[3] }} sett · settpause {{ cfg[4] }} · start {{ cfg[5] }}</td>
+              <td>{{ count }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Ingen timerdata ennå.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Nylige events</h2>
+    {% if recent_events %}
+      <table>
+        <thead><tr><th>Tid</th><th>Event</th><th>Oppsett</th><th>Fase</th><th>Skjerm</th></tr></thead>
+        <tbody>
+          {% for item in recent_events %}
+            <tr>
+              <td>{{ item.created_at }}</td>
+              <td>{{ item.event }}</td>
+              <td>{{ item.work_seconds or 0 }}/{{ item.rest_seconds or 0 }} · {{ item.cycles or 0 }} x {{ item.sets or 0 }}</td>
+              <td>{{ item.phase or '' }}</td>
+              <td>{{ 'Pa' if item.keep_awake else 'Av' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Ingen events logget ennå.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
