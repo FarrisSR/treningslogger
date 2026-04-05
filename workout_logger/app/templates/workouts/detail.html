@@ -1,81 +1,29 @@
 {% extends 'base.html' %}
 {% block title %}{{ workout.title }} | Workout Logger{% endblock %}
 {% block head %}
+{# Layout for Treningsøkt lives in static/css/workout_detail.css. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/workout_detail.css') }}">
+{# Behavior for tabs, accordion, save-all and exercise hints lives in workout_detail.js. #}
 <script defer src="{{ url_for('static', filename='js/workout_detail.js') }}"></script>
-<style>
-  .plan-mode-mobile { display: none; }
-  .plan-row-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.65rem; margin-bottom: 0.5rem; background: #fafafa; }
-  .plan-row-card .meta { font-size: 0.9rem; color: #66727f; margin-bottom: 0.4rem; }
-  .set-edit-details { min-width: 180px; }
-  .set-edit-details summary { cursor: pointer; color: #0b7a75; font-weight: 600; }
-  .set-edit-form { margin-top: 0.5rem; display: grid; gap: 0.5rem; min-width: 230px; }
-  .set-edit-form .inline > * { min-width: 70px; }
-  .workout-plan-view-root[data-view-mode="tabs"] .plan-group-accordion-header { display: none; }
-  .workout-plan-view-root[data-view-mode="tabs"] .plan-group-card { display: none; }
-  .workout-plan-view-root[data-view-mode="tabs"] .plan-group-card[data-active="1"] { display: block; }
-  .workout-plan-view-root[data-view-mode="tabs"] .plan-group-body { display: none; }
-  .workout-plan-view-root[data-view-mode="tabs"] .plan-group-body[data-active="1"] { display: block; }
-  .workout-plan-view-root[data-view-mode="tabs"] .plan-view-tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
-  .workout-plan-view-root[data-view-mode="tabs"] .plan-view-tab-btn { width: auto; padding: 0.45rem 0.75rem; background: #e5e7eb; color: #111827; border: 1px solid #d1d5db; border-radius: 10px 10px 0 0; border-bottom-width: 2px; }
-  .workout-plan-view-root[data-view-mode="tabs"] .plan-view-tab-btn[data-active="1"] { background: #ffffff; color: #0b7a75; border-color: #0b7a75; border-bottom-color: #ffffff; }
-  .workout-plan-view-root[data-view-mode="accordion"] .plan-view-tabs { display: none; }
-  .workout-plan-view-root[data-view-mode="accordion"] .plan-group-body { display: none; }
-  .workout-plan-view-root[data-view-mode="accordion"] .plan-group-body[data-active="1"] { display: block; }
-  .workout-plan-view-root[data-view-mode="list"] .plan-view-tabs { display: none; }
-  .workout-plan-view-root[data-view-mode="list"] .plan-group-body { display: block; }
-  .plan-group-card { border:1px solid #d6dbe0; border-radius:8px; padding:0.75rem; }
-  .plan-group-accordion-header { width: 100%; text-align: left; margin-bottom: 0.5rem; }
-  .plan-member-header { display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.5rem; }
-  .side-badge { display:inline-block; border-radius:999px; background:#f1f5f9; color:#0f172a; padding:0.1rem 0.45rem; font-size:0.75rem; margin-left:0.35rem; }
-  .bulk-entry-table { width: 100%; table-layout: fixed; }
-  .bulk-entry-table th:first-child,
-  .bulk-entry-table td:first-child { width: 52px; white-space: nowrap; }
-  .bulk-entry-table input { min-width: 0; width: 100%; padding: 0.4rem; }
-  .bulk-entry-table td { vertical-align: top; }
-  .bulk-entry-table .row-status { min-width: 0; }
-  .group-actions { display:flex; justify-content:space-between; align-items:center; gap:0.75rem; margin:0.75rem 0; flex-wrap:wrap; }
-  .group-actions button { width: auto; min-width: 180px; }
-  .paired-grid { display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem; }
-  .paired-column { border:1px solid #e5e7eb; border-radius:8px; padding:0.75rem; background:#fafafa; }
-  .paired-column h3 { margin-top:0; margin-bottom:0.5rem; }
-  .compact-inputs { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:0.35rem; align-items:start; }
-  @media (max-width: 700px) {
-    .plan-mode-desktop { display: none; }
-    .plan-mode-mobile { display: block; }
-    .paired-grid { grid-template-columns: 1fr; }
-    .bulk-entry-table { table-layout: fixed; width: 100%; }
-    .bulk-entry-table th:first-child,
-    .bulk-entry-table td:first-child { width: 38px; }
-    .bulk-entry-table th,
-    .bulk-entry-table td { padding: 0.3rem; }
-    .bulk-entry-table .row-status { min-width: 0; font-size: 0.82rem; }
-    .compact-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.2rem; }
-    .compact-inputs input { padding: 0.3rem; font-size: 0.9rem; }
-    .group-actions { margin: 0.6rem 0; }
-    .group-actions button { width: 100%; }
-  }
-</style>
 {% endblock %}
 {% block content %}
 {% macro render_set_edit_controls(s) -%}
   <details class="set-edit-details" style="margin-top:0.35rem;">
     <summary>Rediger sett</summary>
     <form method="post" action="{{ url_for('workouts.update_set', workout_id=workout.id, set_id=s.id) }}" class="set-edit-form">
-      <div class="inline">
-        <div>
-          <label>Set</label>
-          <input name="set_no" type="number" min="1" value="{{ s.set_no }}" required>
-        </div>
-        <div>
-          <label>Reps</label>
-          <input name="reps" type="number" min="0" step="1" value="{{ s.reps if s.reps is not none else '' }}">
-        </div>
+      <input name="set_no" type="hidden" value="{{ s.set_no }}">
+      <div class="set-edit-fields">
+        {% if s.duration_seconds is not none %}
         <div>
           <label>Sec</label>
-          <input name="duration_seconds" type="number" min="1" step="1" value="{{ s.duration_seconds if s.duration_seconds is not none else '' }}">
+          <input name="duration_seconds" type="number" min="1" step="1" value="{{ s.duration_seconds }}" required>
         </div>
-      </div>
-      <div class="inline">
+        {% else %}
+        <div>
+          <label>Reps</label>
+          <input name="reps" type="number" min="0" step="1" value="{{ s.reps if s.reps is not none else '' }}" required>
+        </div>
+        {% endif %}
         <div>
           <label>kg</label>
           <input name="weight_kg" type="number" min="0" step="0.5" value="{{ s.weight_kg }}">
@@ -85,12 +33,10 @@
           <input name="rpe" type="number" min="0" max="10" step="0.5" value="{{ s.rpe if s.rpe is not none else '' }}">
         </div>
       </div>
-      <div class="inline">
+      <div class="set-edit-actions">
         <button type="submit">Lagre</button>
+        <button type="submit" formaction="{{ url_for('workouts.delete_set', workout_id=workout.id, set_id=s.id) }}" formmethod="post" class="secondary">Slett</button>
       </div>
-    </form>
-    <form method="post" action="{{ url_for('workouts.delete_set', workout_id=workout.id, set_id=s.id) }}" style="margin-top:0.4rem;">
-      <button type="submit" class="secondary">Slett</button>
     </form>
   </details>
 {%- endmacro %}
@@ -110,18 +56,19 @@
     {% set logged_sets_ns.visible_count = logged_sets_ns.visible_count + 1 %}
   {% endif %}
 {% endfor %}
+{# Template owns structure/content. Layout classes come from workout_detail.css. #}
 <div class="grid grid-2">
   <section class="card">
-    <div style="display:flex; justify-content:space-between; align-items:start; gap:0.75rem; flex-wrap:wrap;">
-      <div>
-        <h1 style="margin:0;">{{ workout.title }}</h1>
-        <p class="muted" style="margin:0.35rem 0 0;">{{ workout.workout_date }}{% if workout.plan %} · Plan: {{ workout.plan.name }}{% endif %}</p>
+    <div class="workout-header">
+      <div class="workout-title-block">
+        <h1>{{ workout.title }}</h1>
+        <p class="muted workout-subtitle">{{ workout.workout_date }}{% if workout.plan %} · Plan: {{ workout.plan.name }}{% endif %}</p>
       </div>
       <form method="post" action="{{ url_for('workouts.delete_workout', workout_id=workout.id) }}" onsubmit="return confirm('Delete this workout and all sets?');">
-        <button type="submit" class="secondary" style="background:#b91c1c;">Delete Workout</button>
+        <button type="submit" class="secondary danger-button">Delete Workout</button>
       </form>
     </div>
-    <p class="muted" style="margin:0.85rem 0 0;">Bruk visningen under for å logge sett. Tid og kommentar lagres lenger ned på siden.</p>
+    <p class="muted workout-intro">Bruk visningen under for å logge sett. Tid og kommentar lagres lenger ned på siden.</p>
   </section>
 
   {% if not selected_exercise_id %}
@@ -129,21 +76,25 @@
   {% endif %}
 </div>
 
-<div class="grid grid-2" style="margin-top:1rem;">
+<div class="grid grid-2 section-top-margin">
   {% if plan_mode_sections %}
-  <section class="card" style="grid-column: 1 / -1;">
-    <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:end;">
-      <div>
-        <h2 style="margin:0;">Treningsøkt</h2>
-        <p class="muted" style="margin:0.35rem 0 0;">
-          Planlagte sett vises under. Reps foreslås fra planen når mulig. For tidsbaserte targets som <code>45s</code> kommer varighet ferdig utfylt og låst.
+  <section class="card full-width-card">
+    <div class="section-header">
+      <div class="section-heading-block">
+        <h2 class="section-heading">Treningsøkt</h2>
+        <p class="muted section-copy">
+          {% if workout.plan %}
+            Planlagte sett vises under. Reps foreslås fra planen når mulig. For tidsbaserte targets som <code>45s</code> kommer varighet ferdig utfylt og låst.
+          {% else %}
+            Tidligere registrerte sett vises i samme layout. Neste tomme rad kan brukes til å legge til flere sett på samme øvelse.
+          {% endif %}
           {% if previous_workout %}Vekt er forhåndsutfylt fra forrige matching økt ({{ previous_workout.workout_date }} · {{ previous_workout.title }}).{% endif %}
         </p>
       </div>
-      <form method="post" action="{{ url_for('workouts.set_workout_view_mode_preference') }}" class="inline" style="width:auto;">
+      <form method="post" action="{{ url_for('workouts.set_workout_view_mode_preference') }}" class="inline view-mode-form">
         <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
-        <div style="min-width:190px;">
-          <label for="workout_view_mode" style="color:#66727f;">Visning</label>
+        <div class="view-mode-field">
+          <label for="workout_view_mode" class="muted-label">Visning</label>
           <select id="workout_view_mode" name="workout_view_mode" onchange="this.form.submit()">
             <option value="accordion" {% if workout_view_mode == 'accordion' %}selected{% endif %}>Rullegardin</option>
             <option value="tabs" {% if workout_view_mode == 'tabs' %}selected{% endif %}>Fliker</option>
@@ -171,14 +122,14 @@
           <button type="button" class="plan-group-accordion-header" data-plan-group-toggle="{{ group.id }}">{{ group.title }}</button>
           <div class="plan-group-body" data-plan-group-body="{{ group.id }}">
           {% if group.paired_lr %}
-            <div class="paired-grid">
+              <div class="paired-grid">
               <div class="paired-column">
                 <h3>{{ group.left_member.exercise.name }}</h3>
-                <p class="muted" style="margin-top:0;">{{ group.left_member.side_label }}{% if group.left_member.target_sets or group.left_member.target_reps %} · Target: {{ group.left_member.target_sets or '' }}{% if group.left_member.target_sets and group.left_member.target_reps %} x {% endif %}{{ group.left_member.target_reps or '' }}{% endif %}</p>
+                <p class="muted paired-subtitle">{{ group.left_member.side_label }}{% if group.left_member.target_sets or group.left_member.target_reps %} · Target: {{ group.left_member.target_sets or '' }}{% if group.left_member.target_sets and group.left_member.target_reps %} x {% endif %}{{ group.left_member.target_reps or '' }}{% endif %}</p>
               </div>
               <div class="paired-column">
                 <h3>{{ group.right_member.exercise.name }}</h3>
-                <p class="muted" style="margin-top:0;">{{ group.right_member.side_label }}{% if group.right_member.target_sets or group.right_member.target_reps %} · Target: {{ group.right_member.target_sets or '' }}{% if group.right_member.target_sets and group.right_member.target_reps %} x {% endif %}{{ group.right_member.target_reps or '' }}{% endif %}</p>
+                <p class="muted paired-subtitle">{{ group.right_member.side_label }}{% if group.right_member.target_sets or group.right_member.target_reps %} · Target: {{ group.right_member.target_sets or '' }}{% if group.right_member.target_sets and group.right_member.target_reps %} x {% endif %}{{ group.right_member.target_reps or '' }}{% endif %}</p>
               </div>
             </div>
             <table class="bulk-entry-table">
@@ -289,7 +240,7 @@
             </table>
           {% else %}
             {% for section in group.members %}
-              <div {% if not loop.first %}style="margin-top:0.75rem; border-top:1px dashed #d6dbe0; padding-top:0.75rem;"{% endif %}>
+              <div class="{% if not loop.first %}plan-member-divider{% endif %}">
                 <div class="plan-member-header">
                   <div>
                     <strong>{{ section.exercise.name }}</strong>
@@ -300,8 +251,6 @@
                   <span class="muted">
                     {% if section.target_sets or section.target_reps %}
                       Target: {{ section.target_sets or '' }}{% if section.target_sets and section.target_reps %} x {% endif %}{{ section.target_reps or '' }}
-                    {% else %}
-                      No target
                     {% endif %}
                   </span>
                 </div>
@@ -423,9 +372,9 @@
     <div id="hint-previous-sets"></div>
     <div>
       <label>Previous Note</label>
-      <div id="hint-previous-note" class="card" style="padding:0.75rem; min-height:2.2rem; background:#f8fafc;"></div>
+      <div id="hint-previous-note" class="card hint-note-card"></div>
     </div>
-    <div style="margin-top:0.75rem;">
+    <div class="hint-current-note-block">
       <label for="current-exercise-note">Current Workout Exercise Note</label>
       <textarea id="current-exercise-note" rows="5" disabled placeholder="Select an exercise to add a note..."></textarea>
       <div class="status muted" id="note-save-status"></div>
@@ -433,12 +382,12 @@
   </section>
 </div>
 
-<div class="grid grid-2" style="margin-top:1rem;">
-  <section style="grid-column: 1 / -1;">
+<div class="grid grid-2 section-top-margin">
+  <section class="full-width-section">
     {% include 'workouts/_workout_details_card.html' %}
   </section>
   {% if selected_exercise_id %}
-    <section style="grid-column: 1 / -1;">
+    <section class="full-width-section">
       {% include 'workouts/_add_set_card.html' %}
     </section>
   {% endif %}

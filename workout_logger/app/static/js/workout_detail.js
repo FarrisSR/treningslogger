@@ -1,4 +1,6 @@
 (function () {
+  // This file owns interactive behavior for the workout detail page.
+  // Visual layout and responsive sizing live in static/css/workout_detail.css.
   function debounce(fn, delay) {
     let timer = null;
     return function (...args) {

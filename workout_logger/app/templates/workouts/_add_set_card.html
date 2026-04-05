@@ -1,7 +1,7 @@
 <section class="card">
   <h2>Legg til flere sett</h2>
   {% if plan_exercise_items %}
-    <p class="muted">Plan exercises are listed first with targets and progress. You can still log an extra exercise if needed.</p>
+    <p class="muted">Planøvelser vises først med targets og fremdrift. Du kan fortsatt logge en ekstra øvelse ved behov.</p>
   {% endif %}
   <form method="post" action="{{ url_for('workouts.add_set', workout_id=workout.id) }}" class="grid" id="add-set-form">
     <div>
@@ -58,15 +58,15 @@
           {% endfor %}
         {% endif %}
       </select>
-      <div id="exercise-plan-meta" class="muted" style="margin-top:0.35rem;"></div>
+      <div id="exercise-plan-meta" class="muted add-set-meta"></div>
     </div>
     <div>
-      <label for="exercise_name">Or create exercise</label>
-      <input id="exercise_name" name="exercise_name" placeholder="e.g. Incline DB Press">
+      <label for="exercise_name">Eller opprett øvelse</label>
+      <input id="exercise_name" name="exercise_name" placeholder="f.eks. Incline DB Press">
     </div>
     <div class="inline">
       <div>
-        <label for="set_no">Set #</label>
+        <label for="set_no">Sett #</label>
         <input id="set_no" name="set_no" type="number" min="1" value="{{ selected_set_no }}" required>
       </div>
       <div id="reps-field">
@@ -86,6 +86,6 @@
         <input id="rpe" name="rpe" type="number" min="0" max="10" step="0.5">
       </div>
     </div>
-    <button type="submit">Add Set</button>
+    <button type="submit">Legg til sett</button>
   </form>
 </section>

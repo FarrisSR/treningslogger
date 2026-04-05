@@ -1,0 +1,91 @@
+/* Workout detail page: CSS owns layout and responsive behavior for the
+   Treningsøkt screen. Interactive state such as tabs, accordion and save-all
+   stays in static/js/workout_detail.js. */
+
+.plan-mode-mobile { display: none; }
+.plan-row-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.65rem; margin-bottom: 0.5rem; background: #fafafa; }
+.plan-row-card .meta { font-size: 0.9rem; color: #66727f; margin-bottom: 0.4rem; }
+
+.workout-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; flex-wrap: wrap; }
+.workout-title-block h1 { margin: 0; }
+.workout-subtitle { margin: 0.35rem 0 0; }
+.workout-intro { margin: 0.85rem 0 0; }
+.danger-button { background: #b91c1c; }
+.section-top-margin { margin-top: 1rem; }
+.full-width-card { grid-column: 1 / -1; }
+.full-width-section { grid-column: 1 / -1; }
+
+.section-header { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; }
+.section-heading { margin: 0; }
+.section-copy { margin: 0.35rem 0 0; }
+.view-mode-form { width: auto; }
+.view-mode-field { min-width: 190px; }
+.muted-label { color: #66727f; }
+
+.set-edit-details { min-width: 180px; }
+.set-edit-details summary { cursor: pointer; color: #0b7a75; font-weight: 600; }
+.set-edit-form { margin-top: 0.5rem; display: grid; gap: 0.5rem; min-width: 0; }
+.set-edit-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.35rem; align-items: start; }
+.set-edit-fields > div { min-width: 0; }
+.set-edit-fields input { min-width: 0; width: 100%; padding: 0.35rem; }
+.set-edit-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.set-edit-actions button { width: auto; min-width: 120px; }
+
+.workout-plan-view-root[data-view-mode="tabs"] .plan-group-accordion-header { display: none; }
+.workout-plan-view-root[data-view-mode="tabs"] .plan-group-card { display: none; }
+.workout-plan-view-root[data-view-mode="tabs"] .plan-group-card[data-active="1"] { display: block; }
+.workout-plan-view-root[data-view-mode="tabs"] .plan-group-body { display: none; }
+.workout-plan-view-root[data-view-mode="tabs"] .plan-group-body[data-active="1"] { display: block; }
+.workout-plan-view-root[data-view-mode="tabs"] .plan-view-tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.workout-plan-view-root[data-view-mode="tabs"] .plan-view-tab-btn { width: auto; padding: 0.45rem 0.75rem; background: #e5e7eb; color: #111827; border: 1px solid #d1d5db; border-radius: 10px 10px 0 0; border-bottom-width: 2px; }
+.workout-plan-view-root[data-view-mode="tabs"] .plan-view-tab-btn[data-active="1"] { background: #ffffff; color: #0b7a75; border-color: #0b7a75; border-bottom-color: #ffffff; }
+.workout-plan-view-root[data-view-mode="accordion"] .plan-view-tabs { display: none; }
+.workout-plan-view-root[data-view-mode="accordion"] .plan-group-body { display: none; }
+.workout-plan-view-root[data-view-mode="accordion"] .plan-group-body[data-active="1"] { display: block; }
+.workout-plan-view-root[data-view-mode="list"] .plan-view-tabs { display: none; }
+.workout-plan-view-root[data-view-mode="list"] .plan-group-body { display: block; }
+
+.plan-group-card { border: 1px solid #d6dbe0; border-radius: 8px; padding: 0.75rem; }
+.plan-group-accordion-header { width: 100%; text-align: left; margin-bottom: 0.5rem; }
+.plan-member-header { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.plan-member-divider { margin-top: 0.75rem; border-top: 1px dashed #d6dbe0; padding-top: 0.75rem; }
+.side-badge { display: inline-block; border-radius: 999px; background: #f1f5f9; color: #0f172a; padding: 0.1rem 0.45rem; font-size: 0.75rem; margin-left: 0.35rem; }
+
+.bulk-entry-table { width: 100%; table-layout: fixed; }
+.bulk-entry-table th:first-child,
+.bulk-entry-table td:first-child { width: 52px; white-space: nowrap; }
+.bulk-entry-table input { min-width: 0; width: 100%; padding: 0.4rem; }
+.bulk-entry-table td { vertical-align: top; }
+.bulk-entry-table .row-status { min-width: 0; }
+
+.group-actions { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin: 0.75rem 0; flex-wrap: wrap; }
+.group-actions button { width: auto; min-width: 180px; }
+
+.paired-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.paired-column { border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.75rem; background: #fafafa; }
+.paired-column h3 { margin-top: 0; margin-bottom: 0.5rem; }
+.paired-subtitle { margin-top: 0; }
+
+.compact-inputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.35rem; align-items: start; }
+.hint-note-card { padding: 0.75rem; min-height: 2.2rem; background: #f8fafc; }
+.hint-current-note-block { margin-top: 0.75rem; }
+.add-set-meta { margin-top: 0.35rem; }
+
+@media (max-width: 700px) {
+  .plan-mode-desktop { display: none; }
+  .plan-mode-mobile { display: block; }
+  .paired-grid { grid-template-columns: 1fr; }
+  .bulk-entry-table { table-layout: fixed; width: 100%; }
+  .bulk-entry-table th:first-child,
+  .bulk-entry-table td:first-child { width: 38px; }
+  .bulk-entry-table th,
+  .bulk-entry-table td { padding: 0.3rem; }
+  .bulk-entry-table .row-status { min-width: 0; font-size: 0.82rem; }
+  .compact-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.2rem; }
+  .compact-inputs input { padding: 0.3rem; font-size: 0.9rem; }
+  .set-edit-fields { gap: 0.2rem; }
+  .set-edit-fields input { padding: 0.3rem; font-size: 0.9rem; }
+  .group-actions { margin: 0.6rem 0; }
+  .group-actions button { width: 100%; }
+  .set-edit-actions button { width: 100%; }
+}
