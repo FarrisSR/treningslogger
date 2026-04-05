@@ -1,0 +1,42 @@
+/* Timer pages: CSS owns layout and responsive presentation.
+   Timer logic, beeps, tracking and wake lock live in static/js/hiit_timer.js. */
+
+.timer-shell { display: grid; gap: 1rem; grid-template-columns: minmax(280px, 360px) 1fr; align-items: start; }
+.timer-header { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; }
+.timer-title { margin-top: 0; margin-bottom: 0; }
+.timer-usage-title { margin: 0; }
+.timer-subtitle { margin: 0.35rem 0 0; }
+.timer-header-link { margin: 0; }
+
+.timer-display { text-align: center; padding: 1.25rem; background: linear-gradient(180deg, #0f172a, #172026); color: #f8fafc; border-radius: 14px; }
+.timer-phase { font-size: 0.95rem; letter-spacing: 0.08em; text-transform: uppercase; color: #93c5fd; }
+.timer-clock { font-size: clamp(3.2rem, 9vw, 6rem); line-height: 1; font-weight: 800; margin: 0.75rem 0; }
+.timer-sub { color: #cbd5e1; }
+.timer-display[data-phase='work'] .timer-phase { color: #86efac; }
+.timer-display[data-phase='rest'] .timer-phase { color: #fca5a5; }
+.timer-display[data-phase='ready'] .timer-phase { color: #fde68a; }
+.timer-display[data-phase='done'] .timer-phase { color: #c4b5fd; }
+.timer-progress { height: 12px; border-radius: 999px; background: #1f2937; overflow: hidden; margin-top: 1rem; }
+.timer-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #0ea5e9, #22c55e); transition: width 0.15s linear; }
+
+.timer-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.timer-actions button { min-width: 130px; }
+.timer-toggle-block { margin-top: 0.5rem; }
+.timer-toggle-label { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; }
+.timer-checkbox { width: auto; }
+.timer-toggle-copy { margin: 0.35rem 0 0; }
+
+.timer-presets-section { margin-top: 1rem; }
+.timer-section-title { margin-bottom: 0.5rem; }
+.timer-presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; }
+.timer-presets button { background: #e6fffb; color: #115e59; border: 1px solid #99f6e4; }
+
+.timer-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; }
+.timer-stat { border: 1px solid var(--line); border-radius: 10px; padding: 0.75rem; background: #f8fafc; }
+.timer-stat strong { display: block; font-size: 1.4rem; }
+.timer-note { font-size: 0.92rem; color: var(--muted); }
+.timer-summary-note { margin-top: 0.85rem; }
+
+@media (max-width: 860px) {
+  .timer-shell { grid-template-columns: 1fr; }
+}

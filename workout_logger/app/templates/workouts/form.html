@@ -1,37 +1,42 @@
 {% extends 'base.html' %}
-{% block title %}New Workout | Workout Logger{% endblock %}
+{% block title %}Ny økt | Treningslogger{% endblock %}
+{% block head %}
+{# Layout for simple auth/forms pages lives in static/css/forms.css. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/forms.css') }}">
+{% endblock %}
 {% block content %}
-<div class="card" style="max-width:700px;">
-  <h1>New Workout</h1>
+{# Template owns workout creation form structure/content. #}
+<div class="card form-shell-md">
+  <h1>Ny økt</h1>
   <form method="post" class="grid">
     <div>
-      <label for="title">Title</label>
+      <label for="title">Tittel</label>
       <input id="title" name="title" required>
     </div>
     <div class="grid grid-2">
       <div>
-        <label for="workout_date">Date</label>
+        <label for="workout_date">Dato</label>
         <input id="workout_date" name="workout_date" type="date">
       </div>
       <div>
-        <label for="duration_minutes">Duration (min)</label>
+        <label for="duration_minutes">Varighet (min)</label>
         <input id="duration_minutes" name="duration_minutes" type="number" min="0" step="1">
       </div>
     </div>
     <div>
-      <label for="plan_id">Plan (optional)</label>
+      <label for="plan_id">Plan (valgfritt)</label>
       <select id="plan_id" name="plan_id">
-        <option value="">None</option>
+        <option value="">Ingen</option>
         {% for plan in plans %}
           <option value="{{ plan.id }}">{{ plan.name }}</option>
         {% endfor %}
       </select>
     </div>
     <div>
-      <label for="notes">Workout Notes</label>
+      <label for="notes">Øktnotater</label>
       <textarea id="notes" name="notes" rows="4"></textarea>
     </div>
-    <button type="submit">Create Workout</button>
+    <button type="submit">Opprett økt</button>
   </form>
 </div>
 {% endblock %}

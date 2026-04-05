@@ -1,19 +1,24 @@
 {% extends 'base.html' %}
-{% block title %}Login | Workout Logger{% endblock %}
+{% block title %}Logg inn | Treningslogger{% endblock %}
+{% block head %}
+{# Layout for simple auth/forms pages lives in static/css/forms.css. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/forms.css') }}">
+{% endblock %}
 {% block content %}
-<div class="card" style="max-width:420px; margin:auto;">
-  <h1>Login</h1>
+{# Template owns login form structure/content. #}
+<div class="card form-shell-sm">
+  <h1>Logg inn</h1>
   <form method="post" class="grid">
     <div>
-      <label for="username">Username</label>
+      <label for="username">Brukernavn</label>
       <input id="username" name="username" required>
     </div>
     <div>
-      <label for="password">Password</label>
+      <label for="password">Passord</label>
       <input id="password" name="password" type="password" required>
     </div>
-    <button type="submit">Login</button>
+    <button type="submit">Logg inn</button>
   </form>
-  <p class="muted">No account? <a href="{{ url_for('auth.register') }}">Register</a>.</p>
+  <p class="muted">Ingen konto? <a href="{{ url_for('auth.register') }}">Registrer</a>.</p>
 </div>
 {% endblock %}

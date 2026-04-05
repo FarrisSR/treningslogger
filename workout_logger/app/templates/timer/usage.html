@@ -1,14 +1,18 @@
 {% extends 'base.html' %}
-{% block title %}HIIT-bruk | Workout Logger{% endblock %}
+{% block title %}HIIT-bruk | Treningslogger{% endblock %}
+{% block head %}
+{# Layout for timer pages lives in static/css/timer.css. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/timer.css') }}">
+{% endblock %}
 {% block content %}
 <div class="grid">
   <section class="card">
-    <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:end;">
-      <div>
-        <h1 style="margin:0;">HIIT-bruk</h1>
-        <p class="muted" style="margin:0.35rem 0 0;">Denne siden viser timer-bruk som er logget via appens egen tracking-endpoint.</p>
+    <div class="timer-header">
+      <div class="timer-title-block">
+        <h1 class="timer-usage-title">HIIT-bruk</h1>
+        <p class="muted timer-subtitle">Denne siden viser timer-bruk som er logget via appens egen tracking-endpoint.</p>
       </div>
-      <p style="margin:0;"><a href="{{ url_for('timer.hiit_timer') }}">Tilbake til timer</a></p>
+      <p class="timer-header-link"><a href="{{ url_for('timer.hiit_timer') }}">Tilbake til timer</a></p>
     </div>
   </section>
 

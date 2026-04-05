@@ -1,4 +1,6 @@
 (function () {
+  // This file owns interactive timer behavior.
+  // Layout and responsive styling live in static/css/timer.css.
   function byId(id) {
     return document.getElementById(id);
   }

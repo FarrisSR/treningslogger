@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Workout Logger{% endblock %}</title>
+  <title>{% block title %}Treningslogger{% endblock %}</title>
   <style>
     :root { --bg: #f6f7f5; --fg: #172026; --muted: #66727f; --line: #d6dbe0; --brand: #0b7a75; --card: #fff; }
     body { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; background: var(--bg); color: var(--fg); }
@@ -30,6 +30,11 @@
     code { background: #eef2f7; padding: 0.1rem 0.25rem; border-radius: 4px; }
     .status { min-height: 1.2em; }
     .pill { display: inline-block; background: #e0f2fe; color: #075985; border-radius: 999px; padding: 0.15rem 0.5rem; font-size: 0.8rem; }
+    .nav-form-auto { margin-left: auto; width: auto; }
+    .nav-form-static { margin-left: 0; }
+    .nav-field-sm { min-width: 120px; }
+    .nav-label-muted { font-size: 0.8rem; color: #d1fae5; margin: 0 0 0.15rem; }
+    .nav-select-compact { padding: 0.35rem; border-radius: 6px; }
     .nav-link-tooltip { position: relative; }
     .nav-link-tooltip[data-tooltip-visible="1"]::after {
       content: attr(data-tooltip);
@@ -77,23 +82,23 @@
         <a class="nav-link-tooltip" data-tooltip="Last ned alle registrerte sett som CSV-fil." href="{{ url_for('workouts.export_sets_csv') }}">{{ t('nav.csv') }}</a>
         <a class="nav-link-tooltip" data-tooltip="Last ned alle registrerte sett som Excel-fil (.xlsx)." href="{{ url_for('workouts.export_sets_xlsx') }}">{{ t('nav.excel') }}</a>
         <a class="nav-link-tooltip" data-tooltip="Importer JSON-backup eller historiske sett fra CSV." href="{{ url_for('workouts.import_tools') }}">{{ t('nav.import') }}</a>
-        <form method="post" action="{{ url_for('workouts.set_language_preference') }}" class="inline" style="margin-left:auto; width:auto;">
+        <form method="post" action="{{ url_for('workouts.set_language_preference') }}" class="inline nav-form-auto">
           <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
-          <div style="min-width:120px;">
-            <label for="language" style="font-size:0.8rem; color:#d1fae5; margin:0 0 0.15rem;">{{ t('lang.label') }}</label>
-            <select id="language" name="language" onchange="this.form.submit()" style="padding:0.35rem; border-radius:6px;">
+          <div class="nav-field-sm">
+            <label for="language" class="nav-label-muted">{{ t('lang.label') }}</label>
+            <select id="language" name="language" onchange="this.form.submit()" class="nav-select-compact">
               <option value="nb" {% if current_lang == 'nb' %}selected{% endif %}>{{ t('lang.norwegian') }}</option>
               <option value="en" {% if current_lang == 'en' %}selected{% endif %}>{{ t('lang.english') }}</option>
             </select>
           </div>
         </form>
         <span class="pill">{{ g.current_user.username }}</span>
-        <form method="post" action="{{ url_for('auth.logout') }}" style="margin-left:0;">
+        <form method="post" action="{{ url_for('auth.logout') }}" class="nav-form-static">
           <button type="submit" class="secondary">{{ t('nav.logout') }}</button>
         </form>
       {% else %}
-        <a href="{{ url_for('auth.login') }}">Login</a>
-        <a href="{{ url_for('auth.register') }}">Register</a>
+        <a href="{{ url_for('auth.login') }}">Logg inn</a>
+        <a href="{{ url_for('auth.register') }}">Registrer</a>
       {% endif %}
     </nav>
   </header>

@@ -1,0 +1,9 @@
+/* Data-heavy pages such as import tools and stats.
+   CSS owns layout/presentation; templates own structure and content. */
+
+.full-span-card { grid-column: 1 / -1; }
+.soft-card { margin-top: 1rem; background: #f8fafc; }
+.section-top-heading { margin-top: 0.75rem; }
+.compact-select { max-width: 120px; }
+.checkbox-inline { width: auto; margin-right: 0.35rem; }
+.chart-image { width: 100%; border-radius: 8px; border: 1px solid #d6dbe0; }

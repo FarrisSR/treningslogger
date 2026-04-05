@@ -1,47 +1,52 @@
 {% extends 'base.html' %}
-{% block title %}Import | Workout Logger{% endblock %}
+{% block title %}Import | Treningslogger{% endblock %}
+{% block head %}
+{# Layout for import/statistics tables lives in static/css/data_views.css. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/data_views.css') }}">
+{% endblock %}
 {% block content %}
+{# Template owns import structure and server-rendered summaries. #}
 <div class="grid grid-2">
   <section class="card">
-    <h1>Import JSON (Full)</h1>
+    <h1>Importer JSON (full)</h1>
     <p class="muted">Importer planer, økter, sett og øvelsesnotater. Bruk <code>/export/workouts.json</code> som utgangspunkt for backup/redigering i teksteditor.</p>
     <form id="json-import-form" method="post" action="{{ url_for('workouts.import_workouts_json') }}" enctype="multipart/form-data" class="grid">
       <div>
-        <label for="json_file">JSON file</label>
+        <label for="json_file">JSON-fil</label>
         <input id="json_file" name="json_file" type="file" accept="application/json,.json">
       </div>
       <div>
-        <label for="json_text">Or paste JSON</label>
+        <label for="json_text">Eller lim inn JSON</label>
         <textarea id="json_text" name="json_text" rows="10" placeholder='{"format":"workout_logger_export", ...}'>{{ json_text_value or '' }}</textarea>
       </div>
-      <label><input type="checkbox" name="dry_run" value="1" checked style="width:auto; margin-right:0.35rem;"> Dry-run (preview only)</label>
+      <label><input type="checkbox" name="dry_run" value="1" checked class="checkbox-inline"> Tørrkjøring (kun forhåndsvisning)</label>
       <div>
-        <label for="default_plan_conflict_strategy">Default strategy for existing plans</label>
+        <label for="default_plan_conflict_strategy">Standardvalg for eksisterende planer</label>
         <select id="default_plan_conflict_strategy" name="default_plan_conflict_strategy">
-          <option value="skip" {% if json_default_plan_strategy == 'skip' %}selected{% endif %}>Skip</option>
-          <option value="merge" {% if (json_default_plan_strategy or 'merge') == 'merge' %}selected{% endif %}>Merge</option>
-          <option value="replace" {% if json_default_plan_strategy == 'replace' %}selected{% endif %}>Replace</option>
+          <option value="skip" {% if json_default_plan_strategy == 'skip' %}selected{% endif %}>Hopp over</option>
+          <option value="merge" {% if (json_default_plan_strategy or 'merge') == 'merge' %}selected{% endif %}>Slå sammen</option>
+          <option value="replace" {% if json_default_plan_strategy == 'replace' %}selected{% endif %}>Erstatt</option>
         </select>
         <p class="muted">Gjelder planer med samme navn som allerede finnes.</p>
       </div>
       <div>
-        <label for="default_workout_conflict_strategy">Default strategy for existing workouts</label>
+        <label for="default_workout_conflict_strategy">Standardvalg for eksisterende økter</label>
         <select id="default_workout_conflict_strategy" name="default_workout_conflict_strategy">
-          <option value="skip" {% if (json_default_strategy or 'skip') == 'skip' %}selected{% endif %}>Skip</option>
-          <option value="merge" {% if json_default_strategy == 'merge' %}selected{% endif %}>Merge</option>
-          <option value="replace" {% if json_default_strategy == 'replace' %}selected{% endif %}>Replace</option>
+          <option value="skip" {% if (json_default_strategy or 'skip') == 'skip' %}selected{% endif %}>Hopp over</option>
+          <option value="merge" {% if json_default_strategy == 'merge' %}selected{% endif %}>Slå sammen</option>
+          <option value="replace" {% if json_default_strategy == 'replace' %}selected{% endif %}>Erstatt</option>
         </select>
         <p class="muted">Brukes for økter som allerede finnes (samme dato/tittel/plan). Du kan overstyre per økt i konfliktlisten under.</p>
       </div>
       <div class="inline">
-        <button type="submit" name="preview_json" value="1" class="secondary">Preview JSON</button>
-        <button type="submit">Run JSON Import</button>
+        <button type="submit" name="preview_json" value="1" class="secondary">Forhåndsvis JSON</button>
+        <button type="submit">Kjør JSON-import</button>
       </div>
     </form>
 
     {% if json_preview %}
-    <div class="card" style="margin-top:1rem; background:#f8fafc;">
-      <h3>JSON Preview</h3>
+    <div class="card soft-card">
+      <h3>Forhåndsvisning av JSON</h3>
       <table>
         <tbody>
           {% for key, value in json_preview.meta.items() %}
@@ -51,9 +56,9 @@
       </table>
 
       {% if json_preview.plans %}
-      <h4>Plans (first {{ json_preview.plans|length }})</h4>
+      <h4>Planer (første {{ json_preview.plans|length }})</h4>
       <table>
-        <thead><tr><th>Name</th><th>Exercises</th><th>Examples</th></tr></thead>
+        <thead><tr><th>Navn</th><th>Øvelser</th><th>Eksempler</th></tr></thead>
         <tbody>
           {% for plan in json_preview.plans %}
           <tr>
@@ -67,10 +72,10 @@
       {% endif %}
 
       {% if json_preview.plan_conflicts %}
-      <h4 style="margin-top:0.75rem;">Plan Conflicts ({{ json_preview.plan_conflicts|length }})</h4>
-      <p class="muted">Velg handling for eksisterende planer. <code>Merge</code> oppdaterer/importerer øvelser uten å fjerne planøvelser som ikke er med i importen. <code>Replace</code> erstatter planinnholdet.</p>
+      <h4 class="section-top-heading">Plankonflikter ({{ json_preview.plan_conflicts|length }})</h4>
+      <p class="muted">Velg handling for eksisterende planer. <code>Slå sammen</code> oppdaterer/importerer øvelser uten å fjerne planøvelser som ikke er med i importen. <code>Erstatt</code> erstatter planinnholdet.</p>
       <table>
-        <thead><tr><th>Plan</th><th>Imported/Existing Exercises</th><th>Action</th></tr></thead>
+        <thead><tr><th>Plan</th><th>Importerte/eksisterende øvelser</th><th>Handling</th></tr></thead>
         <tbody>
           {% for conflict in json_preview.plan_conflicts %}
           <tr>
@@ -78,10 +83,10 @@
             <td>{{ conflict.import_exercise_count }} / {{ conflict.existing_exercise_count }}</td>
             <td>
               {% set selected_plan_strategy = json_plan_strategies.get(conflict.index, json_default_plan_strategy or 'merge') %}
-              <select name="plan_strategy_{{ conflict.index }}" form="json-import-form" style="max-width:120px;">
-                <option value="skip" {% if selected_plan_strategy == 'skip' %}selected{% endif %}>Skip</option>
-                <option value="merge" {% if selected_plan_strategy == 'merge' %}selected{% endif %}>Merge</option>
-                <option value="replace" {% if selected_plan_strategy == 'replace' %}selected{% endif %}>Replace</option>
+              <select name="plan_strategy_{{ conflict.index }}" form="json-import-form" class="compact-select">
+                <option value="skip" {% if selected_plan_strategy == 'skip' %}selected{% endif %}>Hopp over</option>
+                <option value="merge" {% if selected_plan_strategy == 'merge' %}selected{% endif %}>Slå sammen</option>
+                <option value="replace" {% if selected_plan_strategy == 'replace' %}selected{% endif %}>Erstatt</option>
               </select>
             </td>
           </tr>
@@ -91,10 +96,10 @@
       {% endif %}
 
       {% if json_preview.workout_conflicts %}
-      <h4 style="margin-top:0.75rem;">Workout Conflicts ({{ json_preview.workout_conflicts|length }})</h4>
+      <h4 class="section-top-heading">Øktkonflikter ({{ json_preview.workout_conflicts|length }})</h4>
       <p class="muted">Velg handling for hver konflikt. Hvis du ikke endrer noe brukes default-valget over.</p>
       <table>
-        <thead><tr><th>Date</th><th>Title</th><th>Plan</th><th>Imported/Existing Sets</th><th>Action</th></tr></thead>
+        <thead><tr><th>Dato</th><th>Tittel</th><th>Plan</th><th>Importerte/eksisterende sett</th><th>Handling</th></tr></thead>
         <tbody>
           {% for conflict in json_preview.workout_conflicts %}
           <tr>
@@ -104,10 +109,10 @@
             <td>{{ conflict.import_set_count }} / {{ conflict.existing_set_count }}</td>
             <td>
               {% set selected_strategy = json_workout_strategies.get(conflict.index, json_default_strategy or 'skip') %}
-              <select name="workout_strategy_{{ conflict.index }}" form="json-import-form" style="max-width:120px;">
-                <option value="skip" {% if selected_strategy == 'skip' %}selected{% endif %}>Skip</option>
-                <option value="merge" {% if selected_strategy == 'merge' %}selected{% endif %}>Merge</option>
-                <option value="replace" {% if selected_strategy == 'replace' %}selected{% endif %}>Replace</option>
+              <select name="workout_strategy_{{ conflict.index }}" form="json-import-form" class="compact-select">
+                <option value="skip" {% if selected_strategy == 'skip' %}selected{% endif %}>Hopp over</option>
+                <option value="merge" {% if selected_strategy == 'merge' %}selected{% endif %}>Slå sammen</option>
+                <option value="replace" {% if selected_strategy == 'replace' %}selected{% endif %}>Erstatt</option>
               </select>
             </td>
           </tr>
@@ -117,9 +122,9 @@
       {% endif %}
 
       {% if json_preview.workouts %}
-      <h4 style="margin-top:0.75rem;">Workouts (first {{ json_preview.workouts|length }})</h4>
+      <h4 class="section-top-heading">Økter (første {{ json_preview.workouts|length }})</h4>
       <table>
-        <thead><tr><th>Date</th><th>Title</th><th>Plan</th><th>Sets</th><th>Exercises</th></tr></thead>
+        <thead><tr><th>Dato</th><th>Tittel</th><th>Plan</th><th>Sett</th><th>Øvelser</th></tr></thead>
         <tbody>
           {% for workout in json_preview.workouts %}
           <tr>
@@ -137,10 +142,10 @@
     {% endif %}
 
     {% if json_summary %}
-    <div class="card" style="margin-top:1rem; background:#f8fafc;">
-      <h3>JSON Import Summary{% if json_summary.dry_run %} (Dry-run){% endif %}</h3>
-      <p class="muted">Default plan conflict strategy: <code>{{ json_summary.default_plan_conflict_strategy }}</code></p>
-      <p class="muted">Default conflict strategy: <code>{{ json_summary.default_workout_conflict_strategy }}</code></p>
+    <div class="card soft-card">
+      <h3>Oppsummering av JSON-import{% if json_summary.dry_run %} (tørrkjøring){% endif %}</h3>
+      <p class="muted">Standardvalg for plankonflikter: <code>{{ json_summary.default_plan_conflict_strategy }}</code></p>
+      <p class="muted">Standardvalg for øktkonflikter: <code>{{ json_summary.default_workout_conflict_strategy }}</code></p>
       <table>
         <tbody>
           {% for key, value in json_summary.summary.items() %}
@@ -153,25 +158,25 @@
   </section>
 
   <section class="card">
-    <h1>Import CSV (Historical Sets)</h1>
+    <h1>Importer CSV (historiske sett)</h1>
     <p class="muted">Importer ett sett per rad. Støtter bl.a. kolonnene <code>date</code>, <code>workout title</code>, <code>exercise</code>, <code>set_no</code>, <code>reps</code>, <code>duration_seconds</code>, <code>weight_kg</code>, <code>rpe</code>.</p>
     <form method="post" action="{{ url_for('workouts.import_sets_csv') }}" enctype="multipart/form-data" class="grid">
       <div>
-        <label for="csv_file">CSV file</label>
+        <label for="csv_file">CSV-fil</label>
         <input id="csv_file" name="csv_file" type="file" accept="text/csv,.csv">
       </div>
       <div>
-        <label for="csv_text">Or paste CSV</label>
+        <label for="csv_text">Eller lim inn CSV</label>
         <textarea id="csv_text" name="csv_text" rows="10" placeholder="date,workout title,exercise,set_no,reps,weight_kg"></textarea>
       </div>
-      <label><input type="checkbox" name="dry_run" value="1" checked style="width:auto; margin-right:0.35rem;"> Dry-run (preview only)</label>
-      <label><input type="checkbox" name="skip_existing_sets" value="1" checked style="width:auto; margin-right:0.35rem;"> Skip existing set numbers on same workout/exercise</label>
-      <button type="submit">Run CSV Import</button>
+      <label><input type="checkbox" name="dry_run" value="1" checked class="checkbox-inline"> Tørrkjøring (kun forhåndsvisning)</label>
+      <label><input type="checkbox" name="skip_existing_sets" value="1" checked class="checkbox-inline"> Hopp over eksisterende settnummer i samme økt/øvelse</label>
+      <button type="submit">Kjør CSV-import</button>
     </form>
 
     {% if csv_summary %}
-    <div class="card" style="margin-top:1rem; background:#f8fafc;">
-      <h3>CSV Import Summary{% if csv_summary.dry_run %} (Dry-run){% endif %}</h3>
+    <div class="card soft-card">
+      <h3>Oppsummering av CSV-import{% if csv_summary.dry_run %} (tørrkjøring){% endif %}</h3>
       <table>
         <tbody>
           {% for key, value in csv_summary.summary.items() %}

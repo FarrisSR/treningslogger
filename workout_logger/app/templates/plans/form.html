@@ -1,7 +1,12 @@
 {% extends 'base.html' %}
-{% block title %}{% if is_edit %}Rediger Treningsøkt bygger{% else %}Ny Treningsøkt bygger{% endif %} | Workout Logger{% endblock %}
+{% block title %}{% if is_edit %}Rediger Treningsøkt bygger{% else %}Ny Treningsøkt bygger{% endif %} | Treningslogger{% endblock %}
+{% block head %}
+{# Layout for Treningsøkt bygger pages lives in static/css/plans.css. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/plans.css') }}">
+{% endblock %}
 {% block content %}
-<div class="card" style="max-width:800px;">
+{# Template owns form structure/content. Styling is shared in plans.css. #}
+<div class="card plan-form-shell">
   <h1>{% if is_edit %}Rediger Treningsøkt bygger{% else %}Ny Treningsøkt bygger{% endif %}</h1>
   <form method="post" class="grid">
     <div>

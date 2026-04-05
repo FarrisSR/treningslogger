@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{{ workout.title }} | Workout Logger{% endblock %}
+{% block title %}{{ workout.title }} | Treningslogger{% endblock %}
 {% block head %}
 {# Layout for Treningsøkt lives in static/css/workout_detail.css. #}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/workout_detail.css') }}">
@@ -64,8 +64,8 @@
         <h1>{{ workout.title }}</h1>
         <p class="muted workout-subtitle">{{ workout.workout_date }}{% if workout.plan %} · Plan: {{ workout.plan.name }}{% endif %}</p>
       </div>
-      <form method="post" action="{{ url_for('workouts.delete_workout', workout_id=workout.id) }}" onsubmit="return confirm('Delete this workout and all sets?');">
-        <button type="submit" class="secondary danger-button">Delete Workout</button>
+      <form method="post" action="{{ url_for('workouts.delete_workout', workout_id=workout.id) }}" onsubmit="return confirm('Slette denne økten og alle settene?');">
+        <button type="submit" class="secondary danger-button">Slett økt</button>
       </form>
     </div>
     <p class="muted workout-intro">Bruk visningen under for å logge sett. Tid og kommentar lagres lenger ned på siden.</p>
@@ -333,12 +333,12 @@
 
   {% if (not plan_mode_sections and grouped_sets) or (plan_mode_sections and logged_sets_ns.visible_count > 0) %}
   <section class="card">
-    <h2>{% if plan_mode_sections %}Ekstra loggede sett{% else %}Logged Sets{% endif %}</h2>
+    <h2>{% if plan_mode_sections %}Ekstra loggede sett{% else %}Loggede sett{% endif %}</h2>
     {% if grouped_sets %}
       {% for exercise in exercises if grouped_sets.get(exercise.id) and (not plan_mode_sections or exercise.id not in plan_ns.exercise_ids) %}
         <h3>{{ exercise.name }}</h3>
         <table>
-          <thead><tr><th>Set</th><th>Reps</th><th>Duration</th><th>Weight</th><th>RPE</th><th></th></tr></thead>
+          <thead><tr><th>Sett</th><th>Reps</th><th>Varighet</th><th>Vekt</th><th>RPE</th><th></th></tr></thead>
           <tbody>
             {% for s in grouped_sets.get(exercise.id, []) %}
             <tr>
@@ -356,7 +356,7 @@
         </table>
       {% endfor %}
     {% else %}
-      <p class="muted">No sets logged yet.</p>
+      <p class="muted">Ingen sett logget ennå.</p>
     {% endif %}
   </section>
   {% endif %}
@@ -365,18 +365,18 @@
            data-workout-id="{{ workout.id }}"
            data-hint-url="{{ url_for('api.exercise_hint', workout_id=workout.id) }}"
            data-note-url="{{ url_for('api.save_exercise_note', workout_id=workout.id) }}">
-    <h2>Exercise History & Notes</h2>
-    <p class="muted">Select an exercise to load the last matching session and note.</p>
-    <p><strong id="hint-exercise-name">No exercise selected</strong></p>
+    <h2>Øvelseshistorikk og notater</h2>
+    <p class="muted">Velg en øvelse for å laste forrige matchende økt og notat.</p>
+    <p><strong id="hint-exercise-name">Ingen øvelse valgt</strong></p>
     <div id="hint-previous-meta" class="muted"></div>
     <div id="hint-previous-sets"></div>
     <div>
-      <label>Previous Note</label>
+      <label>Forrige notat</label>
       <div id="hint-previous-note" class="card hint-note-card"></div>
     </div>
     <div class="hint-current-note-block">
-      <label for="current-exercise-note">Current Workout Exercise Note</label>
-      <textarea id="current-exercise-note" rows="5" disabled placeholder="Select an exercise to add a note..."></textarea>
+      <label for="current-exercise-note">Notat for denne økten</label>
+      <textarea id="current-exercise-note" rows="5" disabled placeholder="Velg en øvelse for å legge til notat..."></textarea>
       <div class="status muted" id="note-save-status"></div>
     </div>
   </section>

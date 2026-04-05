@@ -1,8 +1,13 @@
 {% extends 'base.html' %}
-{% block title %}Treningsøkt bygger | Workout Logger{% endblock %}
+{% block title %}Treningsøkt bygger | Treningslogger{% endblock %}
+{% block head %}
+{# Layout for Treningsøkt bygger pages lives in static/css/plans.css. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/plans.css') }}">
+{% endblock %}
 {% block content %}
+{# Template owns plan list structure and content. #}
 <div class="card">
-  <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+  <div class="plan-header">
     <h1>Treningsøkt bygger</h1>
     <a href="{{ url_for('plans.create_plan') }}">Ny bygger</a>
   </div>

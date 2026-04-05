@@ -1,0 +1,19 @@
+/* Plan pages: CSS owns layout/presentation for Treningsøkt bygger pages.
+   Templates own structure/content. */
+
+.plan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.plan-form-shell {
+  max-width: 800px;
+}
+
+.plan-detail-description {
+  margin-top: 0.35rem;
+}
+

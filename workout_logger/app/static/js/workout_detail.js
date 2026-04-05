@@ -26,7 +26,7 @@
 
   function renderPreviousSets(container, sets) {
     if (!sets || sets.length === 0) {
-      container.innerHTML = '<p class="muted">No matching sets in previous workout.</p>';
+      container.innerHTML = '<p class="muted">Ingen matchende sett i forrige økt.</p>';
       return;
     }
     const rows = sets.map((s) => {
@@ -37,7 +37,7 @@
     }).join('');
     container.innerHTML = `
       <table>
-        <thead><tr><th>Set</th><th>Reps</th><th>Duration</th><th>Weight</th><th>RPE</th></tr></thead>
+        <thead><tr><th>Sett</th><th>Reps</th><th>Varighet</th><th>Vekt</th><th>RPE</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
   }
@@ -157,7 +157,7 @@
     async function fetchHint(exerciseId) {
       status.textContent = '';
       currentNote.disabled = true;
-      hintExerciseName.textContent = 'Loading...';
+      hintExerciseName.textContent = 'Laster...';
       previousMeta.textContent = '';
       previousSets.innerHTML = '';
       previousNote.textContent = '';
@@ -173,7 +173,7 @@
 
     async function saveNoteNow() {
       if (!activeExerciseId) return;
-      status.textContent = 'Saving...';
+      status.textContent = 'Lagrer...';
       try {
         const response = await fetch(panel.dataset.noteUrl, {
           method: 'POST',
@@ -181,9 +181,9 @@
           body: JSON.stringify({ exercise_id: Number(activeExerciseId), note: currentNote.value })
         });
         if (!response.ok) throw new Error('Save failed');
-        status.textContent = 'Saved';
+        status.textContent = 'Lagret';
       } catch (_err) {
-        status.textContent = 'Save failed';
+        status.textContent = 'Lagring feilet';
       }
     }
 
@@ -279,7 +279,7 @@
       activeExerciseId = exerciseId || null;
       if (!exerciseId) {
         localStorage.removeItem(storageKey);
-        hintExerciseName.textContent = 'No exercise selected';
+        hintExerciseName.textContent = 'Ingen øvelse valgt';
         previousMeta.textContent = '';
         previousSets.innerHTML = '';
         previousNote.textContent = '';

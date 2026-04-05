@@ -1,0 +1,12 @@
+/* Simple form pages: CSS owns layout and width constraints.
+   Templates own form structure/content. */
+
+.form-shell-sm {
+  max-width: 420px;
+  margin: auto;
+}
+
+.form-shell-md {
+  max-width: 700px;
+}
+

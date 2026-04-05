@@ -1,20 +1,25 @@
 {% extends 'base.html' %}
-{% block title %}{{ t('stats.title') }} | Workout Logger{% endblock %}
+{% block title %}{{ t('stats.title') }} | Treningslogger{% endblock %}
+{% block head %}
+{# Layout for import/statistics tables lives in static/css/data_views.css. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/data_views.css') }}">
+{% endblock %}
 {% block content %}
+{# Template owns stats structure/content. Chart rendering still happens server-side. #}
 <div class="grid grid-2">
   <section class="card">
     <h2>{{ t('stats.weekly_volume') }}</h2>
-    <img src="{{ url_for('stats.volume_png') }}" alt="Weekly volume chart" style="width:100%; border-radius:8px; border:1px solid #d6dbe0;">
+    <img src="{{ url_for('stats.volume_png') }}" alt="Weekly volume chart" class="chart-image">
   </section>
   <section class="card">
     <h2>{{ t('stats.estimated_1rm') }}</h2>
-    <img src="{{ url_for('stats.pr_png') }}" alt="Estimated 1RM chart" style="width:100%; border-radius:8px; border:1px solid #d6dbe0;">
+    <img src="{{ url_for('stats.pr_png') }}" alt="Estimated 1RM chart" class="chart-image">
   </section>
-  <section class="card" style="grid-column: 1 / -1;">
+  <section class="card full-span-card">
     <h2>{{ t('stats.weekly_time') }}</h2>
-    <img src="{{ url_for('stats.time_png') }}" alt="Weekly timed work chart" style="width:100%; border-radius:8px; border:1px solid #d6dbe0;">
+    <img src="{{ url_for('stats.time_png') }}" alt="Weekly timed work chart" class="chart-image">
   </section>
-  <section class="card" style="grid-column: 1 / -1;">
+  <section class="card full-span-card">
     <h2>{{ t('stats.exercise_overview') }}</h2>
     {% if exercise_rows %}
       <table>

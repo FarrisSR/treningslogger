@@ -1,41 +1,20 @@
 {% extends 'base.html' %}
-{% block title %}HIIT / Tabata | Workout Logger{% endblock %}
+{% block title %}HIIT / Tabata | Treningslogger{% endblock %}
 {% block head %}
+{# Layout for HIIT / Tabata lives in static/css/timer.css. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/timer.css') }}">
+{# Timer behavior, audio, tracking and wake lock live in hiit_timer.js. #}
 <script defer src="{{ url_for('static', filename='js/hiit_timer.js') }}"></script>
-<style>
-  .timer-shell { display:grid; gap:1rem; grid-template-columns:minmax(280px, 360px) 1fr; align-items:start; }
-  .timer-display { text-align:center; padding:1.25rem; background:linear-gradient(180deg, #0f172a, #172026); color:#f8fafc; border-radius:14px; }
-  .timer-phase { font-size:0.95rem; letter-spacing:0.08em; text-transform:uppercase; color:#93c5fd; }
-  .timer-clock { font-size:clamp(3.2rem, 9vw, 6rem); line-height:1; font-weight:800; margin:0.75rem 0; }
-  .timer-sub { color:#cbd5e1; }
-  .timer-display[data-phase='work'] .timer-phase { color:#86efac; }
-  .timer-display[data-phase='rest'] .timer-phase { color:#fca5a5; }
-  .timer-display[data-phase='ready'] .timer-phase { color:#fde68a; }
-  .timer-display[data-phase='done'] .timer-phase { color:#c4b5fd; }
-  .timer-progress { height:12px; border-radius:999px; background:#1f2937; overflow:hidden; margin-top:1rem; }
-  .timer-progress-bar { height:100%; width:0%; background:linear-gradient(90deg, #0ea5e9, #22c55e); transition:width 0.15s linear; }
-  .timer-actions { display:flex; gap:0.75rem; flex-wrap:wrap; }
-  .timer-actions button { min-width:130px; }
-  .timer-presets { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:0.75rem; }
-  .timer-presets button { background:#e6fffb; color:#115e59; border:1px solid #99f6e4; }
-  .timer-summary { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:0.75rem; }
-  .timer-stat { border:1px solid var(--line); border-radius:10px; padding:0.75rem; background:#f8fafc; }
-  .timer-stat strong { display:block; font-size:1.4rem; }
-  .timer-note { font-size:0.92rem; color:var(--muted); }
-  @media (max-width: 860px) {
-    .timer-shell { grid-template-columns:1fr; }
-  }
-</style>
 {% endblock %}
 {% block content %}
 <div class="grid" data-hiit-root data-track-url="{{ url_for('timer.hiit_timer_track') }}">
   <section class="card">
-    <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:end;">
-      <div>
-        <h1 style="margin-top:0; margin-bottom:0;">HIIT / Tabata</h1>
-        <p class="muted" style="margin:0.35rem 0 0;">Still inn arbeid, hvile mellom sykler, hvile mellom sett, sykler og sett. Timeren piper de siste 5 sekundene i hver fase, med et tydelig høyere siste pip.</p>
+    <div class="timer-header">
+      <div class="timer-title-block">
+        <h1 class="timer-title">HIIT / Tabata</h1>
+        <p class="muted timer-subtitle">Still inn arbeid, hvile mellom sykler, hvile mellom sett, sykler og sett. Timeren piper de siste 5 sekundene i hver fase, med et tydelig høyere siste pip.</p>
       </div>
-      <p style="margin:0;"><a href="{{ url_for('timer.hiit_timer_usage') }}">Se bruk</a></p>
+      <p class="timer-header-link"><a href="{{ url_for('timer.hiit_timer_usage') }}">Se bruk</a></p>
     </div>
   </section>
 
@@ -77,16 +56,16 @@
           <button type="button" id="pause-timer" class="secondary">Pause</button>
           <button type="button" id="reset-timer" class="secondary">Nullstill</button>
         </div>
-        <div style="margin-top:0.5rem;">
-          <label style="display:flex; align-items:center; gap:0.5rem; font-weight:600;">
-            <input id="keep-screen-awake" name="keep_screen_awake" type="checkbox" style="width:auto;" checked>
+        <div class="timer-toggle-block">
+          <label class="timer-toggle-label">
+            <input id="keep-screen-awake" name="keep_screen_awake" type="checkbox" class="timer-checkbox" checked>
             Hold skjermen våken mens timeren går
           </label>
-          <p class="muted" style="margin:0.35rem 0 0;">Slå av hvis du vil spare batteri.</p>
+          <p class="muted timer-toggle-copy">Slå av hvis du vil spare batteri.</p>
         </div>
       </form>
-      <div style="margin-top:1rem;">
-        <h2 style="margin-bottom:0.5rem;">Hurtigvalg</h2>
+      <div class="timer-presets-section">
+        <h2 class="timer-section-title">Hurtigvalg</h2>
         <div class="timer-presets">
           <button type="button" data-preset-work="20" data-preset-rest="10" data-preset-cycles="8" data-preset-sets="1" data-preset-set-rest="60" data-preset-start-delay="5">Tabata 20/10</button>
           <button type="button" data-preset-work="30" data-preset-rest="15" data-preset-cycles="10" data-preset-sets="1" data-preset-set-rest="90" data-preset-start-delay="5">30/15 x 10</button>
@@ -113,7 +92,7 @@
           <div class="timer-stat"><span class="muted">Neste fase</span><strong id="summary-next">Hvile</strong></div>
           <div class="timer-stat"><span class="muted">Total tid</span><strong id="summary-total">04:00</strong></div>
         </div>
-        <p class="timer-note" style="margin-top:0.85rem;">Hvile mellom sykler og hvile mellom sett styres separat. Etter siste arbeidsrunde avsluttes timeren uten ekstra hvile.</p>
+        <p class="timer-note timer-summary-note">Hvile mellom sykler og hvile mellom sett styres separat. Etter siste arbeidsrunde avsluttes timeren uten ekstra hvile.</p>
       </div>
     </section>
   </div>
