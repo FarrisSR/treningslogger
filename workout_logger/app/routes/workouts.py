@@ -251,20 +251,19 @@ def view_workout(workout_id: int):
     plan_exercise_ids = []
     plan_exercise_items = []
     plan_mode_sections = []
-    previous_workout = None
+    previous_workout = get_previous_workout(user.id, workout)
     previous_sets_by_exercise_set_no: dict[tuple[int, int], SetEntry] = {}
     previous_last_set_by_exercise: dict[int, SetEntry] = {}
+    if previous_workout is not None:
+        previous_sets = (
+            SetEntry.query.filter_by(user_id=user.id, workout_id=previous_workout.id)
+            .order_by(SetEntry.exercise_id.asc(), SetEntry.set_no.asc(), SetEntry.id.asc())
+            .all()
+        )
+        for prev_set in previous_sets:
+            previous_sets_by_exercise_set_no.setdefault((prev_set.exercise_id, prev_set.set_no), prev_set)
+            previous_last_set_by_exercise[prev_set.exercise_id] = prev_set
     if workout.plan:
-        previous_workout = get_previous_workout(user.id, workout)
-        if previous_workout is not None:
-            previous_sets = (
-                SetEntry.query.filter_by(user_id=user.id, workout_id=previous_workout.id)
-                .order_by(SetEntry.exercise_id.asc(), SetEntry.set_no.asc(), SetEntry.id.asc())
-                .all()
-            )
-            for prev_set in previous_sets:
-                previous_sets_by_exercise_set_no.setdefault((prev_set.exercise_id, prev_set.set_no), prev_set)
-                previous_last_set_by_exercise[prev_set.exercise_id] = prev_set
 
         for pe in workout.plan.exercises:
             if pe.exercise is None:
@@ -334,6 +333,51 @@ def view_workout(workout_id: int):
                 None,
             )
             selected_exercise_id = (unfinished or plan_exercise_items[0])["exercise"].id
+    elif grouped_sets:
+        ordered_exercise_ids = sorted(
+            grouped_sets.keys(),
+            key=lambda exercise_id: min((s.id for s in grouped_sets.get(exercise_id, [])), default=0),
+        )
+        for exercise_id in ordered_exercise_ids:
+            exercise = next((item for item in exercises if item.id == exercise_id), None)
+            if exercise is None:
+                continue
+            sets_for_exercise = grouped_sets.get(exercise_id, [])
+            max_set_no = max((s.set_no or 0) for s in sets_for_exercise) if sets_for_exercise else 0
+            row_numbers = range(1, max_set_no + 2)
+            rows = []
+            for row_set_no in row_numbers:
+                matching_logged = [s for s in sets_for_exercise if s.set_no == row_set_no]
+                previous_set = previous_sets_by_exercise_set_no.get((exercise_id, row_set_no))
+                if previous_set is None:
+                    previous_set = previous_last_set_by_exercise.get(exercise_id)
+                target_mode = "duration" if previous_set is not None and previous_set.duration_seconds is not None else "reps"
+                rows.append(
+                    {
+                        "plan_exercise_id": None,
+                        "set_no": row_set_no,
+                        "suggested_reps": previous_set.reps if previous_set is not None else None,
+                        "suggested_duration_seconds": previous_set.duration_seconds if previous_set is not None else None,
+                        "suggested_weight_kg": previous_set.weight_kg if previous_set is not None else None,
+                        "target_mode": target_mode,
+                        "side": None,
+                        "previous_set": previous_set,
+                        "logged": matching_logged,
+                    }
+                )
+            plan_mode_sections.append(
+                {
+                    "plan_exercise_id": None,
+                    "exercise": exercise,
+                    "target_sets": None,
+                    "target_reps": None,
+                    "group_key": None,
+                    "side": None,
+                    "rows": rows,
+                }
+            )
+        if selected_exercise_id is None and ordered_exercise_ids:
+            selected_exercise_id = ordered_exercise_ids[0]
 
     plan_exercise_id_set = set(plan_exercise_ids)
     other_exercises = [exercise for exercise in exercises if exercise.id not in plan_exercise_id_set]
