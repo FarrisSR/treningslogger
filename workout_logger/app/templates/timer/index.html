@@ -53,9 +53,11 @@
         </div>
         <div class="timer-actions">
           <button type="button" id="start-timer">Start</button>
+          <button type="button" id="test-timer-sound" class="secondary">Test lyd</button>
           <button type="button" id="pause-timer" class="secondary">Pause</button>
           <button type="button" id="reset-timer" class="secondary">Nullstill</button>
         </div>
+        <p class="muted timer-actions-copy">Spiller av samme lyd som brukes i de siste sekundene av nedtellingen.</p>
         <div class="timer-toggle-block">
           <label class="timer-toggle-label">
             <input id="keep-screen-awake" name="keep_screen_awake" type="checkbox" class="timer-checkbox" checked>
@@ -78,7 +80,7 @@
     </section>
 
     <section class="grid">
-      <div class="timer-display card" id="timer-display" data-phase="ready">
+      <div class="timer-display card" id="timer-display" data-phase="ready" tabindex="-1">
         <div class="timer-phase" id="timer-phase-label">Klar</div>
         <div class="timer-clock" id="timer-clock">00:20</div>
         <div class="timer-sub" id="timer-sub-label">Trykk start for å begynne</div>

@@ -37,6 +37,7 @@
     const startDelayInput = byId('start_delay_seconds');
     const keepScreenAwakeInput = byId('keep-screen-awake');
     const startBtn = byId('start-timer');
+    const testSoundBtn = byId('test-timer-sound');
     const pauseBtn = byId('pause-timer');
     const resetBtn = byId('reset-timer');
     const display = byId('timer-display');
@@ -63,6 +64,12 @@
     let state = null;
     let currentRunId = null;
     let currentPresetName = null;
+
+    function focusTimerDisplay() {
+      if (!display) return;
+      display.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      display.focus({ preventScroll: true });
+    }
 
     function loadSettings() {
       try {
@@ -331,8 +338,17 @@
       phaseStartedAt = Date.now() - (((currentPhase() ? currentPhase().seconds * 1000 : 0) - remainingMs));
       window.clearInterval(timerId);
       timerId = window.setInterval(tick, 100);
+      focusTimerDisplay();
       render();
       logTimerEvent('start');
+    }
+
+    function testTimerSound() {
+      ensureAudioReady();
+      beep(false);
+      window.setTimeout(function () {
+        beep(true);
+      }, 220);
     }
 
     function pauseTimer() {
@@ -396,6 +412,7 @@
     });
 
     startBtn.addEventListener('click', startTimer);
+    testSoundBtn.addEventListener('click', testTimerSound);
     pauseBtn.addEventListener('click', pauseTimer);
     resetBtn.addEventListener('click', resetTimer);
     form.addEventListener('submit', function (event) {

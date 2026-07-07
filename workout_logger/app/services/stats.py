@@ -12,55 +12,134 @@ def _week_start(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
-def weekly_volume_points(user_id: int):
+def _workout_label(workout: Workout) -> str:
+    if workout.title:
+        return f"{workout.workout_date.isoformat()} - {workout.title}"
+    return workout.workout_date.isoformat()
+
+
+def session_volume_points(user_id: int):
     rows = (
         SetEntry.query.join(Workout, SetEntry.workout_id == Workout.id)
-        .filter(SetEntry.user_id == user_id, Workout.user_id == user_id)
+        .filter(
+            SetEntry.user_id == user_id,
+            Workout.user_id == user_id,
+            SetEntry.reps.isnot(None),
+        )
         .options(joinedload(SetEntry.workout))
-        .order_by(Workout.workout_date.asc())
+        .order_by(Workout.workout_date.asc(), Workout.id.asc(), SetEntry.id.asc())
         .all()
     )
     totals = defaultdict(float)
+    labels: dict[int, str] = {}
     for row in rows:
         if row.workout is None:
             continue
-        totals[_week_start(row.workout.workout_date)] += (row.reps or 0) * (row.weight_kg or 0)
-    return sorted(totals.items(), key=lambda item: item[0])
+        totals[row.workout_id] += (row.reps or 0) * (row.weight_kg or 0)
+        labels[row.workout_id] = _workout_label(row.workout)
+    return [(labels[workout_id], value) for workout_id, value in sorted(totals.items(), key=lambda item: item[0])]
 
 
-def pr_estimate_points(user_id: int):
+def session_pr_estimate_points(user_id: int):
     rows = (
         SetEntry.query.join(Workout, SetEntry.workout_id == Workout.id)
         .filter(SetEntry.user_id == user_id, Workout.user_id == user_id, SetEntry.reps > 0)
         .options(joinedload(SetEntry.workout))
-        .order_by(Workout.workout_date.asc())
+        .order_by(Workout.workout_date.asc(), Workout.id.asc(), SetEntry.id.asc())
         .all()
     )
-    best_by_day = defaultdict(float)
+    best_by_workout = defaultdict(float)
+    labels: dict[int, str] = {}
     for row in rows:
         if row.workout is None:
             continue
         est_1rm = (row.weight_kg or 0) * (1 + (row.reps or 0) / 30.0)
-        day = row.workout.workout_date
-        if est_1rm > best_by_day[day]:
-            best_by_day[day] = est_1rm
-    return sorted(best_by_day.items(), key=lambda item: item[0])
+        workout_id = row.workout_id
+        if est_1rm > best_by_workout[workout_id]:
+            best_by_workout[workout_id] = est_1rm
+            labels[workout_id] = _workout_label(row.workout)
+    return [(labels[workout_id], value) for workout_id, value in sorted(best_by_workout.items(), key=lambda item: item[0])]
 
 
-def weekly_duration_points(user_id: int):
+def session_duration_points(user_id: int):
     rows = (
         SetEntry.query.join(Workout, SetEntry.workout_id == Workout.id)
         .filter(SetEntry.user_id == user_id, Workout.user_id == user_id, SetEntry.duration_seconds.isnot(None))
         .options(joinedload(SetEntry.workout))
-        .order_by(Workout.workout_date.asc())
+        .order_by(Workout.workout_date.asc(), Workout.id.asc(), SetEntry.id.asc())
         .all()
     )
     totals = defaultdict(int)
+    labels: dict[int, str] = {}
     for row in rows:
         if row.workout is None or row.duration_seconds is None:
             continue
-        totals[_week_start(row.workout.workout_date)] += int(row.duration_seconds)
-    return sorted(totals.items(), key=lambda item: item[0])
+        totals[row.workout_id] += int(row.duration_seconds)
+        labels[row.workout_id] = _workout_label(row.workout)
+    return [(labels[workout_id], value) for workout_id, value in sorted(totals.items(), key=lambda item: item[0])]
+
+
+def exercise_progress_points(user_id: int, exercise_id: int, period: str = "session", metric: str = "volume"):
+    rows = (
+        SetEntry.query.join(Workout, SetEntry.workout_id == Workout.id)
+        .filter(
+            SetEntry.user_id == user_id,
+            Workout.user_id == user_id,
+            SetEntry.exercise_id == exercise_id,
+            SetEntry.reps.isnot(None),
+        )
+        .options(joinedload(SetEntry.workout))
+        .order_by(Workout.workout_date.asc(), Workout.id.asc(), SetEntry.id.asc())
+        .all()
+    )
+
+    if metric not in {"volume", "top_set"}:
+        metric = "volume"
+    if period not in {"session", "week"}:
+        period = "session"
+
+    if period == "week":
+        values: dict[date, float] = defaultdict(float)
+        for row in rows:
+            if row.workout is None:
+                continue
+            bucket = _week_start(row.workout.workout_date)
+            value = float(row.weight_kg or 0) if metric == "top_set" else float((row.reps or 0) * (row.weight_kg or 0))
+            if metric == "top_set":
+                values[bucket] = max(values[bucket], value)
+            else:
+                values[bucket] += value
+        return [(bucket.isoformat(), value) for bucket, value in sorted(values.items(), key=lambda item: item[0])]
+
+    values: dict[int, float] = defaultdict(float)
+    labels: dict[int, str] = {}
+    for row in rows:
+        if row.workout is None:
+            continue
+        workout_id = row.workout_id
+        labels[workout_id] = _workout_label(row.workout)
+        value = float(row.weight_kg or 0) if metric == "top_set" else float((row.reps or 0) * (row.weight_kg or 0))
+        if metric == "top_set":
+            values[workout_id] = max(values[workout_id], value)
+        else:
+            values[workout_id] += value
+    return [(labels[workout_id], value) for workout_id, value in sorted(values.items(), key=lambda item: item[0])]
+
+
+def exercise_rep_choices(user_id: int):
+    rows = (
+        Exercise.query.join(SetEntry, SetEntry.exercise_id == Exercise.id)
+        .filter(
+            Exercise.user_id == user_id,
+            SetEntry.user_id == user_id,
+            SetEntry.reps.isnot(None),
+        )
+        .order_by(Exercise.name.asc())
+        .with_entities(Exercise.id, Exercise.name)
+        .distinct()
+        .all()
+    )
+    return [{"id": exercise_id, "name": name} for exercise_id, name in rows]
 
 
 def exercise_overview_rows(user_id: int):

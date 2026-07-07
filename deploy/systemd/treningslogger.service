@@ -1,0 +1,17 @@
+[Unit]
+Description=Treningslogger Flask App (Gunicorn)
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/treningslogger
+EnvironmentFile=/opt/treningslogger/.env
+Environment=MPLCONFIGDIR=/run/treningslogger
+RuntimeDirectory=treningslogger
+ExecStart=/opt/treningslogger/.venv/bin/gunicorn -c gunicorn.conf.py run:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

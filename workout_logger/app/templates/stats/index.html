@@ -7,17 +7,45 @@
 {% block content %}
 {# Template owns stats structure/content. Chart rendering still happens server-side. #}
 <div class="grid grid-2">
-  <section class="card">
-    <h2>{{ t('stats.weekly_volume') }}</h2>
-    <img src="{{ url_for('stats.volume_png') }}" alt="Weekly volume chart" class="chart-image">
-  </section>
-  <section class="card">
-    <h2>{{ t('stats.estimated_1rm') }}</h2>
-    <img src="{{ url_for('stats.pr_png') }}" alt="Estimated 1RM chart" class="chart-image">
-  </section>
   <section class="card full-span-card">
-    <h2>{{ t('stats.weekly_time') }}</h2>
-    <img src="{{ url_for('stats.time_png') }}" alt="Weekly timed work chart" class="chart-image">
+    <h2>{{ t('stats.exercise_load') }}</h2>
+    {% if exercise_choices %}
+      <form method="get" class="inline">
+        <div>
+          <label for="exercise_id">{{ t('stats.col.exercise') }}</label>
+          <select id="exercise_id" name="exercise_id">
+            {% for choice in exercise_choices %}
+              <option value="{{ choice.id }}" {% if selected_exercise_id == choice.id %}selected{% endif %}>{{ choice.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="exercise_metric">{{ t('stats.metric') }}</label>
+          <select id="exercise_metric" name="exercise_metric">
+            <option value="volume" {% if selected_exercise_metric == 'volume' %}selected{% endif %}>{{ t('stats.metric.volume') }}</option>
+            <option value="top_set" {% if selected_exercise_metric == 'top_set' %}selected{% endif %}>{{ t('stats.metric.top_set') }}</option>
+          </select>
+        </div>
+        <div>
+          <label for="exercise_period">{{ t('stats.period') }}</label>
+          <select id="exercise_period" name="exercise_period">
+            <option value="session" {% if selected_exercise_period == 'session' %}selected{% endif %}>{{ t('stats.period.session') }}</option>
+            <option value="week" {% if selected_exercise_period == 'week' %}selected{% endif %}>{{ t('stats.period.week') }}</option>
+          </select>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button type="submit">{{ t('stats.update_chart') }}</button>
+        </div>
+      </form>
+      <img
+        src="{{ url_for('stats.exercise_volume_png', exercise_id=selected_exercise_id, period=selected_exercise_period, metric=selected_exercise_metric) }}"
+        alt="Exercise load chart"
+        class="chart-image"
+      >
+    {% else %}
+      <p class="muted">{{ t('stats.no_rep_exercises') }}</p>
+    {% endif %}
   </section>
   <section class="card full-span-card">
     <h2>{{ t('stats.exercise_overview') }}</h2>
@@ -54,5 +82,19 @@
       <p class="muted">{{ t('stats.no_exercise_stats') }}</p>
     {% endif %}
   </section>
+  <div class="stats-chart-grid full-span-card">
+    <section class="card">
+      <h2>{{ t('stats.session_volume') }}</h2>
+      <img src="{{ url_for('stats.volume_png') }}" alt="Session volume chart" class="chart-image">
+    </section>
+    <section class="card">
+      <h2>{{ t('stats.session_1rm') }}</h2>
+      <img src="{{ url_for('stats.pr_png') }}" alt="Estimated 1RM chart" class="chart-image">
+    </section>
+    <section class="card">
+      <h2>{{ t('stats.session_time') }}</h2>
+      <img src="{{ url_for('stats.time_png') }}" alt="Session timed work chart" class="chart-image">
+    </section>
+  </div>
 </div>
 {% endblock %}

@@ -9,6 +9,7 @@
 .timer-header-link { margin: 0; }
 
 .timer-display { text-align: center; padding: 1.25rem; background: linear-gradient(180deg, #0f172a, #172026); color: #f8fafc; border-radius: 14px; }
+.timer-display:focus { outline: 3px solid #38bdf8; outline-offset: 3px; }
 .timer-phase { font-size: 0.95rem; letter-spacing: 0.08em; text-transform: uppercase; color: #93c5fd; }
 .timer-clock { font-size: clamp(3.2rem, 9vw, 6rem); line-height: 1; font-weight: 800; margin: 0.75rem 0; }
 .timer-sub { color: #cbd5e1; }
@@ -21,6 +22,7 @@
 
 .timer-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 .timer-actions button { min-width: 130px; }
+.timer-actions-copy { margin: 0.5rem 0 0; }
 .timer-toggle-block { margin-top: 0.5rem; }
 .timer-toggle-label { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; }
 .timer-checkbox { width: auto; }
